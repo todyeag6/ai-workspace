@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 /**
- * © AR WebScapes 2025
+ * © AI WebScapes 2026
  */
 
 function db(): PDO

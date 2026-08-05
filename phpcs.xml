@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<ruleset name="Aiwebscapes">
+    <description>PSR-12 for src/ and tests/. legacy/ excluded initially.</description>
+
+    <file>src</file>
+    <file>tests</file>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/legacy/*</exclude-pattern>
+
+    <arg name="colors"/>
+    <arg value="sp"/>
+
+    <rule ref="PSR12"/>
+
+    <!-- PHPUnit test methods use snake_case by convention throughout this
+         project's plan (test_missing_required_secret_throws, etc.). PSR-12's
+         camelCase method-name sniff is not auto-fixable, so exclude it for
+         tests/ only. Production code in src/ keeps the full PSR-12 rule. -->
+    <rule ref="PSR1.Methods.CamelCapsMethodName">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidFunctionName.MethodNameNotCamelCaps">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+</ruleset>

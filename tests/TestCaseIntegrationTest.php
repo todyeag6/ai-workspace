@@ -1,8 +1,11 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Tests;
 
 use PDO;
+use RuntimeException;
 
 /**
  * Proves the App\Tests\TestCase harness contract:
@@ -46,16 +49,34 @@ final class TestCaseIntegrationTest extends TestCase
         self::adminConnection()->exec('DROP TABLE IF EXISTS ' . self::PROBE_TABLE);
     }
 
+    /**
+     * Runs a single-value query and returns its first column.
+     *
+     * $this->pdo is built with ERRMODE_EXCEPTION, so query() throws rather
+     * than returning false; the explicit false check exists to satisfy static
+     * analysis and to fail loudly should that attribute ever be relaxed. It is
+     * deliberately a thrown exception and NOT an assertion, so it neither
+     * inflates the suite's assertion count nor participates in the
+     * rollback-isolation proof below.
+     */
+    private function queryScalar(string $sql): mixed
+    {
+        $statement = $this->pdo->query($sql);
+        if ($statement === false) {
+            throw new RuntimeException(sprintf('Query failed: %s', $sql));
+        }
+
+        return $statement->fetchColumn();
+    }
+
     private function probeRowCount(): int
     {
-        return (int) $this->pdo
-            ->query('SELECT COUNT(*) FROM ' . self::PROBE_TABLE)
-            ->fetchColumn();
+        return (int) $this->queryScalar('SELECT COUNT(*) FROM ' . self::PROBE_TABLE);
     }
 
     public function test_pdo_is_connected_to_the_test_database(): void
     {
-        $database = $this->pdo->query('SELECT DATABASE()')->fetchColumn();
+        $database = $this->queryScalar('SELECT DATABASE()');
 
         self::assertSame('aiwebscapes_test', $database);
     }
