@@ -30,6 +30,13 @@ abstract class TestCase extends Base
 {
     protected PDO $pdo;
 
+    /**
+     * Tracks whether THIS instance opened the transaction, so tearDown() can
+     * tell a genuine rollback from a transaction that was implicitly committed
+     * away by a test issuing DDL (CREATE/DROP/ALTER/TRUNCATE) inside its body.
+     */
+    private bool $transactionOwned = false;
+
     protected function setUp(): void
     {
         $dsn = getenv('TEST_DB_DSN');
@@ -45,13 +52,30 @@ abstract class TestCase extends Base
         $this->applyMigrations();
 
         $this->pdo->beginTransaction();
+        $this->transactionOwned = true;
     }
 
     protected function tearDown(): void
     {
+        if (!$this->transactionOwned) {
+            return;
+        }
+
         if (isset($this->pdo) && $this->pdo->inTransaction()) {
             $this->pdo->rollBack();
+        } else {
+            // The transaction is no longer active, but WE opened it: a test
+            // issued DDL (implicit commit) and leaked its writes into every
+            // subsequent test. Fail loudly instead of silently corrupting state.
+            throw new RuntimeException(
+                'Transaction was not active in tearDown(): a test issued DDL '
+                . '(CREATE/DROP/ALTER/TRUNCATE) inside its body, implicitly '
+                . 'committing and breaking rollback isolation. Create scratch '
+                . 'tables in setUpBeforeClass(), never inside a test method.'
+            );
         }
+
+        $this->transactionOwned = false;
     }
 
     /**
