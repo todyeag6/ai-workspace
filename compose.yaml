@@ -1,0 +1,36 @@
+services:
+  app:
+    build: .
+    command: ['sleep', 'infinity']
+    volumes:
+      - '.:/app'
+    working_dir: /app
+    environment:
+      DB_DSN: 'mysql:host=db;dbname=aiwebscapes;charset=utf8mb4'
+      TEST_DB_DSN: 'mysql:host=db;dbname=aiwebscapes_test;charset=utf8mb4'
+      REDIS_DSN: 'tcp://redis:6379'
+      AI_LOCAL_BASE_URL: 'http://host.docker.internal:11434/v1'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: aiwebscapes
+    ports:
+      - '3307:3306'
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-P', '3306', '-uroot', '-proot']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
