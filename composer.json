@@ -1,6 +1,7 @@
 {
     "name": "aiwebscapes/platform",
     "type": "project",
+    "license": "proprietary",
     "authors": [
         {
             "name": "Aiwebscapes Dev",
@@ -8,6 +9,7 @@
         }
     ],
     "require": {
+        "php": "^8.3",
         "slim/slim": "^4",
         "slim/psr7": "^1.8",
         "php-di/php-di": "^7.1",
@@ -28,5 +30,16 @@
         "psr-4": {
             "App\\Tests\\": "tests/"
         }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3"
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "phpcs",
+        "analyse": "phpstan analyse"
     }
 }
