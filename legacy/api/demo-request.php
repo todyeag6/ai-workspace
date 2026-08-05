@@ -3,6 +3,8 @@
  * © AI WebScapes 2026
  */
 
+use App\Security\RateLimiter;
+
 require_once dirname(__DIR__, 2) . '/includes/bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -35,25 +37,22 @@ $config = $GLOBALS['config'];
 $rateWindow = (int) $config['security']['rate_limit_window_seconds'];
 $rateMax = (int) $config['security']['rate_limit_max_attempts'];
 
-if (!isset($_SESSION['demo_rate_limit'])) {
-    $_SESSION['demo_rate_limit'] = [
-        'start' => time(),
-        'count' => 0,
-    ];
+// LFR-CAP-003: the throttle counter lives in shared Redis storage, keyed on
+// the HMAC of the client IP. The session-backed counter this replaces could
+// be reset by simply dropping the session cookie; a shared counter cannot.
+$rateKey = hash_ip(get_client_ip(), (string) $config['security']['ip_hash_secret']);
+
+try {
+    $rateLimiter = new RateLimiter(redis_client(), 'demo_request', $rateMax, $rateWindow);
+    $withinLimit = $rateLimiter->hit($rateKey);
+} catch (Throwable $exception) {
+    // Fail closed. If the shared counter is unreachable we must not degrade
+    // to unlimited submissions, which is the exact bypass this task removes.
+    error_log('Demo request rate limiter unavailable: ' . $exception->getMessage());
+    $withinLimit = false;
 }
 
-$rate = &$_SESSION['demo_rate_limit'];
-
-if (time() - (int) $rate['start'] > $rateWindow) {
-    $rate = [
-        'start' => time(),
-        'count' => 0,
-    ];
-}
-
-$rate['count']++;
-
-if ((int) $rate['count'] > $rateMax) {
+if (!$withinLimit) {
     json_response([
         'success' => false,
         'message' => 'Too many requests. Try again later.',
