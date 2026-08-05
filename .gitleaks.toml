@@ -1,0 +1,57 @@
+# gitleaks configuration for aiwebscapes-platform (SEC-007)
+#
+# Extends the upstream default rule set and adds a narrowly scoped path
+# allowlist. Every entry below is a THIRD-PARTY or GENERATED artifact that is
+# not part of our source tree and cannot carry one of our secrets.
+#
+# Why each path is allowlisted (all verified against a real scan on 2026-08-05,
+# which reported exactly 5 findings, all of them false positives):
+#
+#   vendor/                 Composer-installed third-party code. Gitignored, so
+#                           it is never committed; scanning it only produces
+#                           noise from other projects' test fixtures.
+#   *.phar                  PHP archives are single-file bundles of third-party
+#                           code. The 5 baseline false positives all came from
+#                           vendor/phpstan/phpstan/phpstan.phar, where the
+#                           `generic-api-key` rule matched PHP *stub filenames*
+#                           embedded in the archive:
+#                             sodium_crypto_aead_aes256gcm_keygen.stub
+#                             sodium_crypto_aead_chacha20poly1305_keygen.stub
+#                             sodium_crypto_aead_chacha20poly1305_ietf_keygen.stub
+#                             sodium_crypto_aead_aegis128l_keygen.stub
+#                             CURLOPT_SSLKEYTYPE
+#                           These are function/constant names, not credentials.
+#   composer.lock / *.lock  Dependency lockfiles: package names, versions and
+#                           dist hashes. Hashes look high-entropy but are
+#                           public integrity digests, not secrets.
+#   sbom.xml / *.cyclonedx.json
+#                           Generated CycloneDX SBOMs - derived from the
+#                           lockfile, same public hashes, gitignored.
+#   .phpunit.cache/         Generated test-runner cache.
+#   backups/                Local database dump directory (gitignored). Dumps
+#                           can contain production-shaped data and must never
+#                           be committed; .gitignore is the control here, and
+#                           scanning them locally is pure noise.
+#
+# NOT allowlisted on purpose: src/, tests/, legacy/, migrations/, templates/,
+# public/, scripts/, .env.example, compose.yaml, Dockerfile and every workflow
+# file. Those are the places a real secret would leak from.
+
+title = "aiwebscapes-platform"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Third-party and generated artifacts (see header for per-path rationale)"
+paths = [
+  '''(^|/)vendor/''',
+  '''\.phar$''',
+  '''(^|/)composer\.lock$''',
+  '''\.lock$''',
+  '''(^|/)sbom\.xml$''',
+  '''\.cyclonedx\.json$''',
+  '''(^|/)\.phpunit\.cache/''',
+  '''(^|/)backups/''',
+  '''(^|/)gitleaks-report\.json$''',
+]

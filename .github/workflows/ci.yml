@@ -1,0 +1,159 @@
+# Phase 0 quality gate (SEC-007: automated lint / static analysis / secret +
+# dependency scanning / SBOM / tests on every push and pull request).
+#
+# STATUS: ready-to-use artifact. This repository currently has NO git remote,
+# so this workflow has never executed on a runner. The same six gates are
+# proven locally on every change by `bash scripts/ci-local.sh`, which runs them
+# against the Docker compose stack and is the evidence for Phase 0 exit.
+#
+# TODO(SEC-008) - branch protection, DEFERRED until a remote exists:
+#   SEC-008 requires protecting `main` so this job must pass before merge. That
+#   is a repository *setting*, not code, and cannot be enabled without a
+#   GitHub remote. When the remote is created, do all of the following and
+#   record it in the release evidence:
+#     1. Settings > Branches > Add branch ruleset for `main`
+#     2. Require a pull request before merging (>= 1 approval)
+#     3. Require status checks to pass: select "quality-gate"
+#     4. Require branches to be up to date before merging
+#     5. Block force pushes and branch deletion
+#   Equivalent gh CLI (run once the remote is live):
+#     gh api -X PUT repos/:owner/:repo/branches/main/protection \
+#       -F required_status_checks.strict=true \
+#       -F 'required_status_checks.contexts[]=quality-gate' \
+#       -F enforce_admins=true \
+#       -F required_pull_request_reviews.required_approving_review_count=1 \
+#       -F restrictions=null
+#   Until then this is tracked as an OPEN ITEM, not a silent skip.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: quality-gate
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: aiwebscapes
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+          --health-start-period=60s
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      # The test suite (tests/TestCase.php, tests/Infra/BackupRestoreTest.php)
+      # connects to hosts named `db` and `redis`, matching compose.yaml. The
+      # "Map service hostnames" step below aliases both to 127.0.0.1 so the
+      # exact same DSNs work on a runner without touching the tests.
+      DB_DSN: 'mysql:host=db;dbname=aiwebscapes;charset=utf8mb4'
+      TEST_DB_DSN: 'mysql:host=db;dbname=aiwebscapes_test;charset=utf8mb4'
+      REDIS_DSN: 'tcp://redis:6379'
+      AI_LOCAL_BASE_URL: 'http://127.0.0.1:11434/v1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history: gitleaks-action scans commits, not just the worktree.
+          fetch-depth: 0
+
+      - name: Map service hostnames (db, redis) to the runner loopback
+        run: echo "127.0.0.1 db redis" | sudo tee -a /etc/hosts
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, redis, mbstring, json
+          coverage: none
+          tools: composer:v2
+
+      - name: Install mysql client (used by the backup/restore drill)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mysql-client
+
+      - name: Create the test database
+        run: mysql -h 127.0.0.1 -P 3306 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS aiwebscapes_test CHARACTER SET utf8mb4;"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-php8.3-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php8.3-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # --- Gate 1: PSR-12 -----------------------------------------------------
+      - name: PSR-12 (phpcs)
+        run: vendor/bin/phpcs --standard=phpcs.xml src tests
+
+      # --- Gate 2: static analysis -------------------------------------------
+      - name: PHPStan level 8
+        run: vendor/bin/phpstan analyse --no-progress
+
+      # --- Gate 3: dependency vulnerabilities --------------------------------
+      - name: Dependency vulnerabilities (composer audit)
+        run: composer audit
+
+      # --- Gate 4: SBOM -------------------------------------------------------
+      # cyclonedx/cyclonedx-php-composer v6 ships as a Composer PLUGIN command
+      # (CycloneDX:make-sbom); it installs no vendor/bin binary.
+      - name: SBOM (CycloneDX)
+        run: composer CycloneDX:make-sbom --output-format=XML --output-file=sbom.xml --spec-version=1.6 --validate
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.xml
+          if-no-files-found: error
+
+      # --- Gate 5: secret scan ------------------------------------------------
+      # Uses the repository's .gitleaks.toml so the runner and
+      # scripts/ci-local.sh apply an identical allowlist (vendor/, *.phar,
+      # lockfiles, generated SBOMs - see that file for per-path rationale).
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
+          # GITLEAKS_LICENSE is only required for GitHub Organisation accounts;
+          # add it as a repository secret if this repo is moved into an org.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      # --- Gate 6: tests ------------------------------------------------------
+      # phpunit.xml is strict (failOnWarning / failOnRisky / failOnDeprecation /
+      # failOnNotice / failOnIncomplete), so plain `vendor/bin/phpunit` is the
+      # full gate - no extra flags needed, and none that would relax it.
+      - name: Tests (phpunit)
+        run: vendor/bin/phpunit
