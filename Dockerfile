@@ -9,4 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# MySQL 8 auto-generates a self-signed dev cert. Debian's `default-mysql-client`
+# is the MariaDB client, which verifies the server cert by default and would
+# otherwise fail with "TLS/SSL error: self-signed certificate in certificate
+# chain". Dev-only image, local server -- skip verification so `mysql` works
+# without per-invocation flags.
+RUN printf '[client]\nssl-verify-server-cert=0\n' > /etc/mysql/my.cnf
+
 WORKDIR /app
