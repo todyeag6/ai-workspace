@@ -23,9 +23,11 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+# NOTE: no `concurrency` block. On a free private repo GitHub allocates runners
+# sparsely, so runs sit queued for minutes. cancel-in-progress would let a newer
+# push kill an older run that is still waiting for a runner, producing a
+# "This check has no steps" denial (run cancelled before any step executed).
+# We deliberately let every push/PR run to completion instead.
 
 jobs:
   quality-gate:
