@@ -213,11 +213,29 @@ final class BackupRestoreTest extends TestCase
     }
 
     /**
+     * Guarantees the test database exists before we point a DB-scoped
+     * connection at it. The drill DROPs aiwebscapes_test mid-run; if a prior
+     * aborted drill (or the gap between DROP and CREATE) left it missing, a
+     * naive freshConnection() would die with "Unknown database" on the very
+     * first statement. Creating it here (idempotent) makes the drill
+     * self-healing regardless of what state a previous run left behind.
+     */
+    private static function ensureDatabase(): void
+    {
+        self::serverConnection()->exec(
+            'CREATE DATABASE IF NOT EXISTS ' . self::drillDatabase()
+            . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+        );
+    }
+
+    /**
      * Re-applies the baseline so the database is never left without its schema
      * if the drill aborts part-way through.
      */
     private static function reapplyBaseline(): void
     {
+        self::ensureDatabase();
+
         $sql = file_get_contents(self::repositoryRoot() . '/migrations/000_baseline.sql');
         if ($sql === false) {
             throw new RuntimeException('Unable to read migrations/000_baseline.sql.');
@@ -238,6 +256,9 @@ final class BackupRestoreTest extends TestCase
         // before its end-of-test cleanup (this test DROPs and recreates the
         // whole database, so a mid-drill abort leaves committed residue).
         // Doing this FIRST makes the drill idempotent across re-runs.
+        // Ensure the database exists before any DB-scoped connection - a
+        // prior aborted drill may have left it dropped.
+        self::ensureDatabase();
         self::deleteSeededRows();
 
         // 1. Seed committed rows so a separate mysqldump process can see them.

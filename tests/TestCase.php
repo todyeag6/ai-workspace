@@ -60,6 +60,26 @@ abstract class TestCase extends Base
             throw new RuntimeException('TEST_DB_DSN is not set; cannot reach the test database.');
         }
 
+        // SELF-HEAL: ensure the test database exists before we connect to it.
+        // The AC-004 drill in BackupRestoreTest DROPs aiwebscapes_test mid-run.
+        // If a test executes in the window while it is dropped - or a prior
+        // aborted drill left it missing - a bare connection would throw
+        // "Unknown database 'aiwebscapes_test'" and cascade into a suite-wide
+        // failure that looks like a code regression. Creating it idempotently
+        // (via a server-scoped connection that survives the drop) makes every
+        // test self-healing regardless of drill ordering. Per-process isolation
+        // (separate TEST_DB_DSN per run) already stops a DROP from reaching a
+        // sibling run's database; this guard covers the single-run case.
+        $dsnObject = \App\Infra\DatabaseDsn::fromString($dsn);
+        $server = new PDO($dsnObject->serverDsn(), 'root', 'root', [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+        $server->exec(
+            'CREATE DATABASE IF NOT EXISTS ' . $dsnObject->quotedDatabase()
+            . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+        );
+
         $this->pdo = new PDO($dsn, 'root', 'root', [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_EMULATE_PREPARES => false,
