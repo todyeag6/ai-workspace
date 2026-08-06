@@ -165,6 +165,61 @@ abstract class TenantRepository
     }
 
     /**
+     * Scoped INSERT (added by P1-T4, same guarantee as the read path).
+     *
+     * The tenant column is not something the caller supplies - it is PREPENDED
+     * to the column list here and bound by TenantScope, and a caller naming it
+     * in $values is refused outright by rejectTenantColumnWrite(). So a row
+     * written through a repository is necessarily born inside that
+     * repository's tenant: there is no argument that could place it elsewhere,
+     * which is the insert-side of FR-TEN-002/AC-001.
+     *
+     * @param  array<string, scalar|null> $values Column => value, excluding tenant_id.
+     * @return string The generated primary key, as PDO reports it.
+     */
+    protected function insertScoped(array $values): string
+    {
+        if ($values === []) {
+            throw new InvalidArgumentException('An INSERT needs at least one column to write.');
+        }
+
+        $columns = [];
+        $placeholders = [];
+        $bound = [];
+
+        foreach ($values as $column => $value) {
+            // FR-TEN-001: the scope column is chosen by the repository, never
+            // by the caller - not even on the row that creates it.
+            $this->scope->rejectTenantColumnWrite($column);
+
+            $safe = $this->assertIdentifier($column, 'column');
+            $columns[] = $safe;
+            $placeholders[] = ':' . $safe;
+            $bound[$safe] = $value;
+        }
+
+        $sql = 'INSERT INTO ' . $this->safeTable()
+            . ' (' . TenantScope::COLUMN . ', ' . implode(', ', $columns) . ')'
+            . ' VALUES (:' . TenantScope::PARAM . ', ' . implode(', ', $placeholders) . ')';
+
+        $this->run($sql, $bound);
+
+        $id = $this->pdo->lastInsertId();
+        if ($id === false) {
+            // Only reachable on a driver that reports no generated key (or a
+            // table without an auto-increment column). Surfaced rather than
+            // coerced to '0', which would hand the caller a plausible-looking
+            // id pointing at nothing.
+            throw new RuntimeException(sprintf(
+                'The driver reported no generated key for the row inserted into "%s".',
+                $this->safeTable()
+            ));
+        }
+
+        return $id;
+    }
+
+    /**
      * Scoped UPDATE. Returns the number of affected rows, which is 0 when the
      * target row belongs to another tenant - the write is refused by the
      * database, not by an application-level check that could be skipped.
