@@ -32,10 +32,12 @@ use PDO;
  * On the fixture repository standing in for the plan's LeadRepository, see the
  * class docblock of FixtureTenantRepository.
  *
- * DDL LIFECYCLE: the scratch table is created in setUpBeforeClass() and dropped
- * in tearDownAfterClass(), both outside the per-test transaction. MySQL commits
- * implicitly on DDL, so a CREATE inside a test body would silently end the
- * surrounding transaction and trip the base harness's loud DDL-leak guard.
+ * DDL LIFECYCLE: the scratch table is declared via scratchTableDdl() (re-ensured
+ * before EVERY test, so the AC-004 drill dropping the database mid-suite cannot
+ * leave it missing) and dropped in tearDownAfterClass(). Both are outside the
+ * per-test transaction. MySQL commits implicitly on DDL, so a CREATE inside a
+ * test body would silently end the surrounding transaction and trip the base
+ * harness's loud DDL-leak guard.
  *
  * © AI WebScapes 2026
  */

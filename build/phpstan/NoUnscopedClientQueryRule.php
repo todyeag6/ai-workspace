@@ -156,8 +156,14 @@ final class NoUnscopedClientQueryRule implements Rule
         }
 
         $classReflection = $scope->getClassReflection();
-        if ($classReflection !== null && $classReflection->is(self::REPOSITORY_BASE)) {
-            // TenantRepository and its subclasses are scoped by construction.
+        if ($classReflection !== null && $classReflection->getName() === self::REPOSITORY_BASE) {
+            // Only the base class App\Data\TenantRepository is exempt. It has no
+            // raw query()/exec() of its own (it prepares and binds in run(), and
+            // $pdo is private so a subclass cannot reach it either). A SUBCLASS
+            // is deliberately NOT exempt: a LeadRepository that opened its own
+            // raw PDO call would be exactly the bypass this rule exists to stop,
+            // and ClassReflection::is() would have wrongly widened the exemption
+            // to every subclass. Match the exact name, not instanceof.
             return [];
         }
 

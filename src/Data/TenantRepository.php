@@ -64,13 +64,20 @@ abstract class TenantRepository
      */
     private const SET_PREFIX = 'set_';
 
-    protected PDO $pdo;
-
     /**
      * Private, not protected: a subclass must not be able to swap the scope
      * after construction. Read it through tenantId() if it needs the value.
      */
     private TenantScope $scope;
+
+    /**
+     * Private, not protected: a subclass must not be able to reach the PDO
+     * handle and issue a raw query()/exec() that bypasses selectScoped(). The
+     * whole point of AC-001 is that the only SQL path out of a repository is
+     * the scoped one; exposing $pdo would reopen the bypass the PHPStan rule
+     * (build/phpstan/NoUnscopedClientQueryRule.php) exists to close.
+     */
+    private PDO $pdo;
 
     public function __construct(PDO $pdo, ?int $tenantId)
     {

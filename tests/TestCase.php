@@ -25,7 +25,10 @@ use RuntimeException;
  * PITFALL: MySQL DDL causes an implicit commit. Migrations therefore run
  * BEFORE beginTransaction(), and no test may issue DDL inside its body -
  * doing so would commit the surrounding transaction and break isolation.
- * Tests needing a scratch table must create it in setUpBeforeClass().
+ * Tests needing a scratch table must override scratchTableDdl() (see below),
+ * NOT setUpBeforeClass(). A class-level hook runs once and is silently defeated
+ * by tests/Infra/BackupRestoreTest.php dropping the whole database mid-suite;
+ * per-test re-ensurance is what actually survives that.
  *
  * Isolation is unchanged by the once-per-process migration: the schema is
  * shared, but every test's DATA writes still live and die inside its own
@@ -71,6 +74,7 @@ abstract class TestCase extends Base
         // drill dropping the database cannot leave it missing. See
         // scratchTableDdl().
         foreach ($this->scratchTableDdl() as $ddl) {
+            $this->assertScratchDdl($ddl);
             $this->pdo->exec($ddl);
         }
 
@@ -94,7 +98,7 @@ abstract class TestCase extends Base
                 'Transaction was not active in tearDown(): a test issued DDL '
                 . '(CREATE/DROP/ALTER/TRUNCATE) inside its body, implicitly '
                 . 'committing and breaking rollback isolation. Create scratch '
-                . 'tables in setUpBeforeClass(), never inside a test method.'
+                . 'tables by overriding scratchTableDdl(), never inside a test method body.'
             );
         }
 
@@ -167,6 +171,24 @@ abstract class TestCase extends Base
     protected function scratchTableDdl(): array
     {
         return [];
+    }
+
+    /**
+     * The hook contract is "idempotent CREATE TABLE IF NOT EXISTS only". Without
+     * this guard a subclass returning an INSERT/DROP would leak data across
+     * every test permanently, and tearDown() structurally CANNOT catch it
+     * because no transaction is open yet at that point. Enforce the contract.
+     */
+    private function assertScratchDdl(string $ddl): void
+    {
+        $normalised = strtoupper(ltrim($ddl));
+        if (!str_starts_with($normalised, 'CREATE TABLE IF NOT EXISTS')) {
+            throw new RuntimeException(sprintf(
+                'scratchTableDdl() must return only idempotent "CREATE TABLE IF NOT EXISTS" '
+                . 'statements; got: %s',
+                $ddl
+            ));
+        }
     }
 
     /**

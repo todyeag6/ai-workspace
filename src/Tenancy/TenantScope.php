@@ -26,7 +26,13 @@ use PDOStatement;
  * WHY the caller's own predicate is parenthesised in where(): a fragment like
  * `a = 1 OR b = 2` appended bare after `AND` would bind as
  * `(tenant AND a = 1) OR b = 2` and reach straight past the tenant boundary.
- * Wrapping it makes an OR inside a caller fragment unable to widen the scope.
+ * Wrapping it as `AND (a = 1 OR b = 2)` keeps the OR INSIDE the AND-clause, so
+ * it can never widen the scope to other tenants. The caller fragment is
+ * therefore contained - but containment is the only guarantee: the fragment
+ * MUST be a developer-authored constant, never untrusted input, because a
+ * fragment that itself is well-formed SQL (e.g. a UNION) stays inside the parens
+ * and is still executed as part of this statement. Scoping is structural; it is
+ * not a SQL-escaping facility.
  *
  * This class deliberately owns no PDO connection: it describes a boundary,
  * and App\Data\TenantRepository is what applies it to a statement.
