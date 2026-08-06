@@ -112,7 +112,7 @@ abstract class TestCase extends Base
      */
     private function applyMigrations(): void
     {
-        if (self::$migrationsApplied) {
+        if (self::$migrationsApplied && $this->schemaLooksApplied()) {
             return;
         }
 
@@ -136,5 +136,43 @@ abstract class TestCase extends Base
         // Set only after a clean pass: if a migration throws, the next test
         // retries rather than silently running against a half-built schema.
         self::$migrationsApplied = true;
+    }
+
+    /**
+     * Cheap confirmation that the live database still carries the migrated
+     * schema, guarding the once-per-process fast path above.
+     *
+     * WHY THE FLAG ALONE IS NOT ENOUGH: a process-scoped boolean asserts "this
+     * process already migrated", which is a claim about the PROCESS, not the
+     * DATABASE. tests/Infra/BackupRestoreTest.php runs the AC-004 drill and
+     * DROPs aiwebscapes_test mid-suite; if that drill aborts before restoring,
+     * the schema is gone while the flag still reads true, and every later test
+     * dies with "Unknown database" or "table ... doesn't exist".
+     *
+     * Deliberately ONE indexed information_schema count rather than a full
+     * verification: this runs before every test, so it must stay far cheaper
+     * than the migration pass it protects (~62 statements and climbing). It
+     * only has to catch the catastrophic case - the schema vanishing wholesale
+     * - not subtle drift, which the idempotent migrations repair anyway.
+     */
+    private function schemaLooksApplied(): bool
+    {
+        $expected = count(glob(__DIR__ . '/../migrations/*.sql') ?: []);
+        if ($expected === 0) {
+            return true;
+        }
+
+        $statement = $this->pdo->query(
+            'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'
+        );
+        if ($statement === false) {
+            return false;
+        }
+
+        // The baseline alone creates several tables, so a healthy migrated
+        // schema always has at least as many tables as migration files. A
+        // dropped and freshly recreated database reports 0 and forces a
+        // re-apply.
+        return (int) $statement->fetchColumn() >= $expected;
     }
 }

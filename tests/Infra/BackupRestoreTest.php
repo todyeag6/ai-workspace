@@ -285,6 +285,42 @@ final class BackupRestoreTest extends TestCase
     }
 
     /**
+     * Guarantees the test database exists and carries the full schema, however
+     * the drill above exited.
+     *
+     * The drill DROPs aiwebscapes_test and depends on a multi-step restore to
+     * put it back. Every one of those steps can fail - a transient
+     * "1213 Deadlock" against the concurrently-migrating suite is enough - and
+     * without this hook an aborted drill leaves the database DESTROYED. Each
+     * following test then dies in setUp() with "Unknown database
+     * 'aiwebscapes_test'", turning one transient error into a suite-wide
+     * cascade that looks like a code regression.
+     *
+     * Runs after every test in this class regardless of outcome, so the blast
+     * radius of a failed drill is the drill itself.
+     */
+    protected function tearDown(): void
+    {
+        try {
+            // Only guarantee the DATABASE exists - deliberately not the schema.
+            // reapplyBaseline() applies 000_baseline.sql alone, so calling it
+            // here would leave a PARTIAL schema (no 001 tenant/identity tables)
+            // that looks healthy. Recreating the empty database is enough:
+            // TestCase::applyMigrations() detects the missing schema via
+            // schemaLooksApplied() and replays every migration in order.
+            self::serverConnection()->exec(
+                'CREATE DATABASE IF NOT EXISTS aiwebscapes_test'
+                . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+            );
+        } finally {
+            // The base tearDown() owns the transaction-rollback contract and
+            // its loud DDL-leak guard - it must run even if the repair above
+            // throws.
+            parent::tearDown();
+        }
+    }
+
+    /**
      * Prod safety: restore.php will not drop a database on a bare --dsn.
      */
     public function test_restore_refuses_to_drop_the_database_without_confirmation(): void
