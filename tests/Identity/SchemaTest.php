@@ -237,9 +237,17 @@ final class SchemaTest extends TestCase
      */
     public function test_users_is_mfa_ready(): void
     {
-        self::assertNotNull(
+        self::assertSame(
+            'YES',
             $this->columnNullability('users', 'mfa_secret'),
-            'users.mfa_secret is required for MFA readiness - FR-IDENT-001.'
+            'users.mfa_secret must be NULLABLE - a user without MFA enrolled has no secret. '
+            . 'A NOT NULL column would force a sentinel value for every non-MFA user - FR-IDENT-001.'
+        );
+
+        self::assertSame(
+            'varchar(255)',
+            $this->columnType('users', 'mfa_secret'),
+            'users.mfa_secret must be VARCHAR(255) to hold an encrypted TOTP secret - FR-IDENT-001.'
         );
     }
 
