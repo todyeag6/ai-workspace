@@ -3,5 +3,18 @@ parameters:
     paths:
         - src
         - tests
+        # The custom rule is analysed by the very run it takes part in, so a
+        # type error in the enforcement mechanism fails the gate like any other.
+        - build/phpstan
     bootstrapFiles:
         - vendor/autoload.php
+
+services:
+    # FR-TEN-002 / AC-001 enforced mechanically rather than by review habit:
+    # raw PDO::query()/PDO::exec() is refused outside App\Data\TenantRepository.
+    # See build/phpstan/NoUnscopedClientQueryRule.php for the exclusions and
+    # the reasoning behind each one.
+    -
+        class: Aiwebscapes\PhpStan\NoUnscopedClientQueryRule
+        tags:
+            - phpstan.rules.rule
