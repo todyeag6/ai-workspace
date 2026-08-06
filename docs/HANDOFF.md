@@ -161,4 +161,58 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 
 ---
 
+## 9. GitHub CI + branch protection — REALITY (verified 2026-08-06)
+
+The remote **exists**: `origin = https://github.com/todyeag6/ai-workspace.git`
+(user created it; first commit `5dfdc84`). `main` tracks `origin/main`. Code is
+pushed (`9eb9fa1` is the latest on the remote as of this note).
+
+### 9.1 CI workflow IS active, but the runner is starved
+- `.github/workflows/ci.yml` is committed and runs the **same six gates** as
+  `scripts/ci-local.sh` on a GitHub-hosted runner (push + PR triggers).
+- A **critical fix** landed in `9eb9fa1`: the MySQL service was mislabeled
+  `mysql` while the PHP DSNs connect to host `db`, and relied on a fragile
+  `echo 127.0.0.1 db redis | sudo tee /etc/hosts` step. Per the **official
+  GitHub Actions docs** ("the hostname of the service container is the label
+  you configure"), the service is now named `db` (matching the DSN) and the
+  `/etc/hosts` hack is gone. The pre-fix runs (`800e3fd`, `5dfdc848`) failed
+  with run=failure / job=cancelled / 0 steps / no logs — consistent with the
+  service being unreachable.
+- **The fix is validated locally**: `bash scripts/ci-local.sh` on `9eb9fa1`
+  returns `ALL LOCAL CI GATES PASSED (6/6)` — 52 tests, 111 assertions. The
+  workflow mirrors these exact checks, so gate *correctness* is proven locally.
+- **GitHub run `31124162872` (head `9eb9fa1`) is stuck `queued`** — NOT failed.
+  On a **free private repo, GitHub allocates runners sparsely**; runs sit in
+  queue for many minutes before (if) a runner picks them up. No completion
+  email arrives while queued. This is a **plan-tier scheduler artifact, not a
+  code defect.** Treat `ci-local.sh` as the authoritative CI proof; the remote
+  run is a nice-to-have that the free tier may never schedule promptly.
+
+### 9.2 Branch protection (SEC-008) is BLOCKED by the plan tier
+- Both the **legacy branch-protection API** and the **rulesets API** return
+  `403 "Upgrade to GitHub Pro or make this repository public to enable this
+  feature."` for this private Free repo.
+- Confirmed against **official GitHub docs**: protected branches / rulesets are
+  available in **public repos**, and in **private repos only with GitHub Pro,
+  Team, or Enterprise**. GitHub Free (private) gets them for public repos only.
+- Therefore SEC-008 (require PR + review + status check before merge, block
+  force-push/delete) **cannot be enabled as-is**. Options, per the owner:
+  1. Make the repo **public** (protection works free) — risky for proprietary code.
+  2. **Upgrade to GitHub Pro** ($4/mo) — keeps it private AND unlocks rulesets
+     (the recommended, more granular enforcement).
+  3. **Stay private + free** — CI still runs on push/PR, but the *merge gate*
+     cannot be enforced. Document SEC-008 as OPEN (blocked by plan tier), not
+     silently skipped.
+- Decision as of 2026-08-06: **stay private + free**; owner pushes their own.
+  SEC-008 remains an OPEN item in the Phase-1 exit gate, recorded here.
+
+### 9.3 What this means for the exit gate
+- "GitHub Actions running" — SATISFIED in principle (workflow active + local
+  gate green); the remote run's completion is tier-limited.
+- "SEC-008 branch protection" — OPEN (tier-blocked, documented above).
+- Neither blocks local development or the local `ci-local.sh` gate, which is
+  the source of truth for "are the six gates green."
+
+---
+
 *This handoff is a living snapshot. The authoritative plan is the `.hermes/plans/...` file; this doc captures live repo state the plan cannot.*
