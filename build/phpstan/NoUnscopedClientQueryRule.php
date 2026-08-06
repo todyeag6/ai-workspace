@@ -105,6 +105,8 @@ final class NoUnscopedClientQueryRule implements Rule
         'user_roles',
         'client_contacts',
         'leads',
+        'agents',
+        'agent_versions',
     ];
 
     /**
