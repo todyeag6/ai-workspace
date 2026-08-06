@@ -16,7 +16,8 @@ use RuntimeException;
  *
  * Lifecycle per test:
  *   1. Connect to the test database.
- *   2. Apply all migrations in lexicographic order (FR-DEP-001: ordered).
+ *   2. Ensure all migrations have been applied in lexicographic order
+ *      (FR-DEP-001: ordered) - ONCE PER PROCESS, see applyMigrations().
  *   3. Open a transaction.
  *   4. ... test body ...
  *   5. Roll the transaction back, discarding every write.
@@ -25,10 +26,22 @@ use RuntimeException;
  * BEFORE beginTransaction(), and no test may issue DDL inside its body -
  * doing so would commit the surrounding transaction and break isolation.
  * Tests needing a scratch table must create it in setUpBeforeClass().
+ *
+ * Isolation is unchanged by the once-per-process migration: the schema is
+ * shared, but every test's DATA writes still live and die inside its own
+ * transaction.
  */
 abstract class TestCase extends Base
 {
     protected PDO $pdo;
+
+    /**
+     * Whether migrations have already been applied in THIS PHP process.
+     *
+     * Static (process-scoped) rather than per-instance: PHPUnit runs the whole
+     * suite in a single process by default, so one pass covers every test.
+     */
+    private static bool $migrationsApplied = false;
 
     /**
      * Tracks whether THIS instance opened the transaction, so tearDown() can
@@ -49,6 +62,8 @@ abstract class TestCase extends Base
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
 
+        // Must stay HERE, before beginTransaction(): migrations are DDL, and
+        // DDL implicitly commits on MySQL. A no-op after the first test.
         $this->applyMigrations();
 
         $this->pdo->beginTransaction();
@@ -83,9 +98,24 @@ abstract class TestCase extends Base
      *
      * Runs outside any transaction: MySQL implicitly commits on DDL, so
      * wrapping migrations in a transaction would be a lie.
+     *
+     * ONCE PER PROCESS, not once per test. Re-applying in every setUp() costs
+     * O(tests x statements): the schema grows but the work per test does not
+     * shrink, so the suite slows down quadratically as both counts rise. The
+     * per-test isolation guarantee does not depend on it - that comes purely
+     * from beginTransaction()/rollBack(), which remain per-test.
+     *
+     * Migrations MUST still be idempotent: a fresh process re-applies them
+     * against a database that very likely already carries the schema (the test
+     * database is not dropped between runs). CREATE TABLE IF NOT EXISTS,
+     * guarded ALTERs, INSERT IGNORE - the contract is unchanged.
      */
     private function applyMigrations(): void
     {
+        if (self::$migrationsApplied) {
+            return;
+        }
+
         // glob() returns false when the directory is missing, and its ordering
         // is not guaranteed across platforms - normalise both.
         $files = glob(__DIR__ . '/../migrations/*.sql') ?: [];
@@ -102,5 +132,9 @@ abstract class TestCase extends Base
                 $this->pdo->exec($statement);
             }
         }
+
+        // Set only after a clean pass: if a migration throws, the next test
+        // retries rather than silently running against a half-built schema.
+        self::$migrationsApplied = true;
     }
 }
