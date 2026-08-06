@@ -92,7 +92,16 @@ final class TestCaseIntegrationTest extends TestCase
     {
         $database = $this->queryScalar('SELECT DATABASE()');
 
-        self::assertSame('aiwebscapes_test', $database);
+        // Read the expected name from the DSN rather than hardcoding it, so the
+        // suite can run against a per-process database (TEST_DB_DSN override)
+        // without this assertion failing. Concurrent runs against ONE shared
+        // database corrupt each other - tests/Infra/BackupRestoreTest.php drops
+        // it mid-suite - so per-process databases are a supported mode.
+        $dsn = getenv('TEST_DB_DSN');
+        self::assertIsString($dsn, 'TEST_DB_DSN must be set.');
+        self::assertSame(1, preg_match('/dbname=([^;]+)/', $dsn, $matches), 'TEST_DB_DSN must name a dbname.');
+
+        self::assertSame($matches[1], $database);
     }
 
     public function test_a_transaction_is_active_inside_the_test_body(): void

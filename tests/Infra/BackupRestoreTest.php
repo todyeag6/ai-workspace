@@ -46,7 +46,6 @@ final class BackupRestoreTest extends TestCase
     private const MARKER = 'ac004-drill@aiwebscapes.local';
 
     /** Deterministic name: re-running the drill overwrites rather than piles up. */
-    private const DUMP_PATH = '/app/backups/aiwebscapes_test-drill.sql.gz';
 
     private static function repositoryRoot(): string
     {
@@ -175,6 +174,48 @@ final class BackupRestoreTest extends TestCase
      * Re-applies the baseline so the database is never left without its schema
      * if the drill aborts part-way through.
      */
+    /**
+     * The database this drill is allowed to destroy, read from TEST_DB_DSN.
+     *
+     * NEVER hardcode 'aiwebscapes_test' in the destructive statements below.
+     * The suite supports a per-process database (TEST_DB_DSN override) so that
+     * concurrent runs - two reviewer subagents, for instance - do not corrupt
+     * each other. A hardcoded name would make an isolated run drop the SHARED
+     * database out from under whoever else is using it: the exact cross-process
+     * corruption the override exists to prevent.
+     */
+    private static function drillDatabase(): string
+    {
+        $dsn = getenv('TEST_DB_DSN');
+        if ($dsn === false || $dsn === '') {
+            throw new RuntimeException('TEST_DB_DSN is not set; refusing to guess the drill database.');
+        }
+
+        if (preg_match('/dbname=([A-Za-z0-9_]+)/', $dsn, $matches) !== 1) {
+            throw new RuntimeException(sprintf('TEST_DB_DSN does not name a dbname: %s', $dsn));
+        }
+
+        return $matches[1];
+    }
+
+    /**
+     * Re-applies the baseline so the database is never left without its schema
+     * if the drill aborts part-way through.
+     */
+    /**
+     * Dump path, namespaced by the target database so two concurrent runs
+     * (each with its own TEST_DB_DSN) cannot overwrite each other's dump
+     * mid-drill.
+     */
+    private static function dumpPath(): string
+    {
+        return sprintf('/app/backups/%s-drill.sql.gz', self::drillDatabase());
+    }
+
+    /**
+     * Re-applies the baseline so the database is never left without its schema
+     * if the drill aborts part-way through.
+     */
     private static function reapplyBaseline(): void
     {
         $sql = file_get_contents(self::repositoryRoot() . '/migrations/000_baseline.sql');
@@ -213,34 +254,37 @@ final class BackupRestoreTest extends TestCase
         // 2. Back the database up.
         $backup = self::runScript('backup.php', [
             '--dsn=' . self::testDsn(),
-            '--out=' . self::DUMP_PATH,
+            '--out=' . self::dumpPath(),
         ]);
         self::assertSame(0, $backup['code'], self::describe('backup.php', $backup));
-        self::assertFileExists(self::DUMP_PATH);
+        self::assertFileExists(self::dumpPath());
 
-        $dumpSize = filesize(self::DUMP_PATH);
+        $dumpSize = filesize(self::dumpPath());
         self::assertIsInt($dumpSize);
         self::assertGreaterThan(0, $dumpSize, 'The dump must not be empty.');
 
-        $magic = file_get_contents(self::DUMP_PATH, false, null, 0, 2);
+        $magic = file_get_contents(self::dumpPath(), false, null, 0, 2);
         self::assertSame("\x1f\x8b", $magic, 'The dump must be a real gzip stream.');
 
         // 3. Destroy the database completely, and prove it is really gone.
         $server = self::serverConnection();
-        $server->exec('DROP DATABASE IF EXISTS aiwebscapes_test');
-        $server->exec('CREATE DATABASE aiwebscapes_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        $server->exec('DROP DATABASE IF EXISTS ' . self::drillDatabase());
+        $server->exec(
+            'CREATE DATABASE ' . self::drillDatabase()
+            . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+        );
 
         $tablesAfterDrop = self::countRows(
             $server,
             "SELECT COUNT(*) FROM information_schema.TABLES"
-            . " WHERE TABLE_SCHEMA = 'aiwebscapes_test'"
+            . " WHERE TABLE_SCHEMA = '" . self::drillDatabase() . "'"
         );
         self::assertSame(0, $tablesAfterDrop, 'The database must be empty before the restore.');
 
         // 4. Restore from the dump.
         $restore = self::runScript('restore.php', [
             '--dsn=' . self::testDsn(),
-            '--in=' . self::DUMP_PATH,
+            '--in=' . self::dumpPath(),
         ]);
         self::assertSame(0, $restore['code'], self::describe('restore.php', $restore));
 
@@ -272,7 +316,8 @@ final class BackupRestoreTest extends TestCase
                 1,
                 self::countRows(
                     $restored,
-                    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'aiwebscapes_test'"
+                    "SELECT COUNT(*) FROM information_schema.TABLES"
+                    . " WHERE TABLE_SCHEMA = '" . self::drillDatabase() . "'"
                     . " AND TABLE_NAME = '" . $table . "'"
                 ),
                 sprintf('Table %s must exist after the restore.', $table)
@@ -309,7 +354,7 @@ final class BackupRestoreTest extends TestCase
             // TestCase::applyMigrations() detects the missing schema via
             // schemaLooksApplied() and replays every migration in order.
             self::serverConnection()->exec(
-                'CREATE DATABASE IF NOT EXISTS aiwebscapes_test'
+                'CREATE DATABASE IF NOT EXISTS ' . self::drillDatabase()
                 . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
             );
         } finally {
@@ -327,7 +372,7 @@ final class BackupRestoreTest extends TestCase
     {
         $result = self::runScript('restore.php', [
             '--dsn=' . self::testDsn(),
-            '--in=' . self::DUMP_PATH,
+            '--in=' . self::dumpPath(),
             '--drop-database',
         ]);
 
@@ -340,7 +385,8 @@ final class BackupRestoreTest extends TestCase
             self::countRows(
                 self::freshConnection(),
                 "SELECT COUNT(*) FROM information_schema.TABLES"
-                . " WHERE TABLE_SCHEMA = 'aiwebscapes_test' AND TABLE_NAME = 'demo_requests'"
+                . " WHERE TABLE_SCHEMA = '" . self::drillDatabase() . "'"
+                . " AND TABLE_NAME = 'demo_requests'"
             ),
             'A refused drop must leave the database intact.'
         );
