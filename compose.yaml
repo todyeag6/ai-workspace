@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    restart: unless-stopped
     command: ['sleep', 'infinity']
     volumes:
       - '.:/app'
@@ -20,6 +21,7 @@ services:
 
   db:
     image: mysql:8
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: aiwebscapes
@@ -34,3 +36,4 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
