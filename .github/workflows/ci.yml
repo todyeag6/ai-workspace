@@ -1,29 +1,16 @@
 # Phase 0 quality gate (SEC-007: automated lint / static analysis / secret +
 # dependency scanning / SBOM / tests on every push and pull request).
 #
-# STATUS: ready-to-use artifact. This repository currently has NO git remote,
-# so this workflow has never executed on a runner. The same six gates are
-# proven locally on every change by `bash scripts/ci-local.sh`, which runs them
-# against the Docker compose stack and is the evidence for Phase 0 exit.
+# ACTIVE: this workflow runs on the GitHub-hosted runner on every push to
+# `main` and on every pull request. It is the CI counterpart of
+# `bash scripts/ci-local.sh`, which runs the same six gates against the local
+# Docker compose stack and is what we used while the repo had no remote.
 #
-# TODO(SEC-008) - branch protection, DEFERRED until a remote exists:
-#   SEC-008 requires protecting `main` so this job must pass before merge. That
-#   is a repository *setting*, not code, and cannot be enabled without a
-#   GitHub remote. When the remote is created, do all of the following and
-#   record it in the release evidence:
-#     1. Settings > Branches > Add branch ruleset for `main`
-#     2. Require a pull request before merging (>= 1 approval)
-#     3. Require status checks to pass: select "quality-gate"
-#     4. Require branches to be up to date before merging
-#     5. Block force pushes and branch deletion
-#   Equivalent gh CLI (run once the remote is live):
-#     gh api -X PUT repos/:owner/:repo/branches/main/protection \
-#       -F required_status_checks.strict=true \
-#       -F 'required_status_checks.contexts[]=quality-gate' \
-#       -F enforce_admins=true \
-#       -F required_pull_request_reviews.required_approving_review_count=1 \
-#       -F restrictions=null
-#   Until then this is tracked as an OPEN ITEM, not a silent skip.
+# SEC-008 branch protection is now ENFORCED on `main` (see the ruleset added
+# 2026-08-06): pull request required (>= 1 approval), status check
+# "quality-gate" must pass, branches kept up to date before merge, force pushes
+# and branch deletion blocked. Direct pushes to main are therefore blocked;
+# changes flow through PRs. This `ci.yml` is the required status check.
 
 name: CI
 
