@@ -33,7 +33,10 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
+      # Named `db` so the PHP DSN host `db` resolves via GitHub's automatic
+      # service-label -> hostname mapping (official docs: "the hostname of the
+      # service container is the label you configure"). No /etc/hosts hack.
+      db:
         image: mysql:8
         env:
           MYSQL_ROOT_PASSWORD: root
@@ -58,9 +61,9 @@ jobs:
 
     env:
       # The test suite (tests/TestCase.php, tests/Infra/BackupRestoreTest.php)
-      # connects to hosts named `db` and `redis`, matching compose.yaml. The
-      # "Map service hostnames" step below aliases both to 127.0.0.1 so the
-      # exact same DSNs work on a runner without touching the tests.
+      # connects to hosts named `db` and `redis`, matching compose.yaml. On the
+      # runner those names are the service-container labels, which GitHub maps
+      # to the container hostnames automatically (no /etc/hosts alias needed).
       DB_DSN: 'mysql:host=db;dbname=aiwebscapes;charset=utf8mb4'
       TEST_DB_DSN: 'mysql:host=db;dbname=aiwebscapes_test;charset=utf8mb4'
       REDIS_DSN: 'tcp://redis:6379'
@@ -72,9 +75,6 @@ jobs:
         with:
           # Full history: gitleaks-action scans commits, not just the worktree.
           fetch-depth: 0
-
-      - name: Map service hostnames (db, redis) to the runner loopback
-        run: echo "127.0.0.1 db redis" | sudo tee -a /etc/hosts
 
       - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
@@ -88,7 +88,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mysql-client
 
       - name: Create the test database
-        run: mysql -h 127.0.0.1 -P 3306 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS aiwebscapes_test CHARACTER SET utf8mb4;"
+        # `db` is the service-container label (resolves to the MySQL container
+        # via GitHub's automatic service-label -> hostname mapping).
+        run: mysql -h db -P 3306 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS aiwebscapes_test CHARACTER SET utf8mb4;"
 
       - name: Cache Composer packages
         uses: actions/cache@v4
