@@ -99,7 +99,11 @@ final class TestCaseIntegrationTest extends TestCase
         // it mid-suite - so per-process databases are a supported mode.
         $dsn = getenv('TEST_DB_DSN');
         self::assertIsString($dsn, 'TEST_DB_DSN must be set.');
-        self::assertSame(1, preg_match('/dbname=([^;]+)/', $dsn, $matches), 'TEST_DB_DSN must name a dbname.');
+
+        $matches = [];
+        if (preg_match('/dbname=([^;]+)/', $dsn, $matches) !== 1) {
+            self::fail(sprintf('TEST_DB_DSN must name a dbname, got: %s', $dsn));
+        }
 
         self::assertSame($matches[1], $database);
     }
