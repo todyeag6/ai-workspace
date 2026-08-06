@@ -38,10 +38,24 @@ final class TestCaseIntegrationTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        // DDL outside the transaction lifecycle - see class docblock.
-        self::adminConnection()->exec(
-            'CREATE TABLE IF NOT EXISTS ' . self::PROBE_TABLE . ' (id INT PRIMARY KEY)'
-        );
+        // DDL outside the transaction lifecycle - see class docblock. Also
+        // re-ensured per test via scratchTableDdl(): the AC-004 drill in
+        // tests/Infra/BackupRestoreTest.php DROPs the database mid-suite, and
+        // a class-level hook has already run by then.
+        self::adminConnection()->exec(self::probeTableDdl());
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function scratchTableDdl(): array
+    {
+        return [self::probeTableDdl()];
+    }
+
+    private static function probeTableDdl(): string
+    {
+        return 'CREATE TABLE IF NOT EXISTS ' . self::PROBE_TABLE . ' (id INT PRIMARY KEY)';
     }
 
     public static function tearDownAfterClass(): void

@@ -58,15 +58,29 @@ final class TenantScopeTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        // DDL outside the transaction lifecycle - see class docblock.
-        self::adminConnection()->exec(
-            'CREATE TABLE IF NOT EXISTS ' . self::PROBE_TABLE . ' ('
+        // DDL outside the transaction lifecycle - see class docblock. Also
+        // re-ensured per test via scratchTableDdl(), because the AC-004 drill
+        // in tests/Infra/BackupRestoreTest.php can DROP the database after
+        // this class-level hook has already run.
+        self::adminConnection()->exec(self::probeTableDdl());
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function scratchTableDdl(): array
+    {
+        return [self::probeTableDdl()];
+    }
+
+    private static function probeTableDdl(): string
+    {
+        return 'CREATE TABLE IF NOT EXISTS ' . self::PROBE_TABLE . ' ('
             . ' id VARCHAR(64) NOT NULL PRIMARY KEY,'
             . ' tenant_id BIGINT UNSIGNED NOT NULL,'
             . ' label VARCHAR(120) NOT NULL,'
             . ' KEY idx_p1t3_scope_probe_tenant (tenant_id)'
-            . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-        );
+            . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
     }
 
     public static function tearDownAfterClass(): void

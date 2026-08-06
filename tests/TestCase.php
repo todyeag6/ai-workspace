@@ -66,6 +66,14 @@ abstract class TestCase extends Base
         // DDL implicitly commits on MySQL. A no-op after the first test.
         $this->applyMigrations();
 
+        // Also before beginTransaction(), and for the same reason: a subclass
+        // declaring scratch DDL gets it re-ensured per test, so the AC-004
+        // drill dropping the database cannot leave it missing. See
+        // scratchTableDdl().
+        foreach ($this->scratchTableDdl() as $ddl) {
+            $this->pdo->exec($ddl);
+        }
+
         $this->pdo->beginTransaction();
         $this->transactionOwned = true;
     }
@@ -136,6 +144,29 @@ abstract class TestCase extends Base
         // Set only after a clean pass: if a migration throws, the next test
         // retries rather than silently running against a half-built schema.
         self::$migrationsApplied = true;
+    }
+
+    /**
+     * Idempotent `CREATE TABLE IF NOT EXISTS` statements for scratch tables
+     * this test class needs. Override in a subclass; default is none.
+     *
+     * WHY THIS IS PER-TEST AND NOT setUpBeforeClass(): a class-level hook runs
+     * ONCE, but tests/Infra/BackupRestoreTest.php runs the AC-004 drill and
+     * DROPs the whole database mid-suite. Any class ordered after it whose
+     * scratch table was created in setUpBeforeClass() then fails with
+     * "Table ... doesn't exist" - intermittently, because it depends purely on
+     * test ordering. Re-ensuring the DDL before every test is a couple of
+     * cheap no-op statements and makes the class order-independent.
+     *
+     * Runs BEFORE beginTransaction() for the usual reason: MySQL implicitly
+     * commits on DDL, so issuing it inside the test transaction would silently
+     * break rollback isolation and trip the DDL-leak guard in tearDown().
+     *
+     * @return list<string>
+     */
+    protected function scratchTableDdl(): array
+    {
+        return [];
     }
 
     /**
