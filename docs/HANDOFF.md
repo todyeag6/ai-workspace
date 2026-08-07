@@ -39,7 +39,7 @@
 | `0ac2fdd` | P0-T6 | `docs/THREAT_MODEL.md` + `docs/adr/0001-modular-monolith.md` |
 | `6301283` | **TODAY fix** | `restart: unless-stopped` + phpcs 4.0.4 (CVE-2026-67434) |
 
-**Current gate status (verified 2026-08-07, after P1-T10 isolated-DB re-verify):** phpunit `OK (155 tests, 359 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0 (81/81 files). Phase-1 tasks complete: **T1–T10** (T11–T15 remain). Each task verified on its own isolated `TEST_DB_DSN`.
+**Current gate status (verified 2026-08-07, after P1-T11 re-verify on isolated DB):** phpunit `OK (161 tests, 391 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0. Phase-1 tasks complete: **T1–T11** (T12–T15 remain). Each task verified on its own isolated `TEST_DB_DSN`.
 
 ---
 
@@ -132,7 +132,7 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 - **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; **DNS-free SSRF** egress guard (blocks 169.254.169.254 metadata, RFC1918, loopback; no gethostbyname). ✅ **DONE** (`a9a4b3b`, NOT yet pushed)
 - **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency (effect-free replay); high-risk waits for human approval (FR-AI-006 at orchestration level). ✅ **DONE** (`1aa7db3`, NOT yet pushed)
 - **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — **public endpoint**: honeypot accepts-not-persists; throttle **fail-closed** (429); persist-then-enqueue-AI; AI failure → lead stays `Review`; all leads tables tenant-scoped (AC-001). ✅ **DONE** (`5dc7b63`, NOT yet pushed)
-- **P1-T11** Duplicates, AI analysis, deterministic routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001).
+- **P1-T11** Duplicates, AI analysis, routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001) — duplicate **linked not overwritten** + re-analysis appends new version; **LFR-AI-002 allow-list redaction** (no PII/SSN reaches model); **deterministic rule overrides AI** (LFR-ROUTE-001); low confidence → `Review`. ✅ **DONE** (`be3855e`, NOT yet pushed; subagent left it uncommitted + phpstan-red, parent finished the methods + committed)
 - **P1-T12** Messaging, tasks, corrections, privacy (LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001).
 - **P1-T13** Audit, notifications, observability, retention (FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002) — **append-only via MySQL BEFORE UPDATE/DELETE triggers** (test that `UPDATE` throws).
 - **P1-T14** Assessment module + BAAF scoring (FR-ASMT-001/002, BAAF-001..006).

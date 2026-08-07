@@ -18,7 +18,7 @@ Call `skill_view` on each before you start building:
 
 ## 1. Ground truth (do NOT re-derive)
 - **Host:** Windows 10, `terminal` = bash (git-bash/MSYS), NOT PowerShell. POSIX paths (`/c/Users/...`). `E:` is exFAT and mounts silently empty — keep everything on `C:`.
-- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T10 DONE** (155 tests, 359 assertions green, verified on isolated DBs), next is **T11** (duplicates + AI analysis + routing). Live state in `docs/HANDOFF.md`. T1–T7.5 are on `origin`; T8/T9/T10 are local-only pending owner push.
+- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T11 DONE** (161 tests, 391 assertions green, verified on isolated DBs), next is **T12** (messaging, tasks, corrections, privacy). Live state in `docs/HANDOFF.md`. T1–T7.5 are on `origin`; T8/T9/T10/T11 are local-only pending owner push.
 - **No PHP/Composer/mysql on host.** Everything via `docker compose exec -T app ...` (ALWAYS `-T`).
 - **Stack:** `app` (php:8.3-cli, `sleep infinity`, `.:/app`), `db` (mysql:8, `3307:3306`), `redis` (7). DSNs: `TEST_DB_DSN=mysql:host=db;dbname=aiwebscapes_test`. `AI_LOCAL_BASE_URL=http://host.docker.internal:11434/v1` (Ollama, GTX 1660 Ti 6GB — **never `gemma4:12b`**).
 - **GitHub remote EXISTS** — `origin = https://github.com/todyeag6/ai-workspace.git` (since 2026-08-06). Pushing is the OWNER's call: do NOT `git push`/`force-push` without an explicit per-occasion instruction. CI is proven via `scripts/ci-local.sh` (the remote Actions run is tier-limited on a Free private repo — see `docs/HANDOFF.md §9`).
@@ -49,7 +49,7 @@ Tasks (from plan §Phase 1, full text + test skeletons are in the plan — read 
 - **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; DNS-free SSRF egress guard. ✅ **DONE** (`a9a4b3b`)
 - **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency; high-risk waits for approval. ✅ **DONE** (`1aa7db3`)
 - **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — public endpoint: honeypot + fail-closed throttle + tenant-scoped; AI failure preserves lead. ✅ **DONE** (`5dc7b63`)
-- **P1-T11** Duplicates, AI analysis, deterministic routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001).
+- **P1-T11** Duplicates, AI analysis, deterministic routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001) — duplicate linked not overwritten; LFR-AI-002 redaction; deterministic rule overrides AI; low confidence → Review. ✅ **DONE** (`be3855e`)
 - **P1-T12** Messaging, tasks, corrections, privacy (LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001).
 - **P1-T13** Audit, notifications, observability, retention (FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002) — **append-only via MySQL BEFORE UPDATE/DELETE triggers**; test that `UPDATE` throws.
 - **P1-T14** Assessment module + BAAF scoring (FR-ASMT-001/002, BAAF-001..006).
