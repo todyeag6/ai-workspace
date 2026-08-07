@@ -49,11 +49,11 @@ Tasks (from plan §Phase 1, full text + test skeletons are in the plan — read 
 - **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; DNS-free SSRF egress guard. ✅ **DONE** (`a9a4b3b`)
 - **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency; high-risk waits for approval. ✅ **DONE** (`1aa7db3`)
 - **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — public endpoint: honeypot + fail-closed throttle + tenant-scoped; AI failure preserves lead. ✅ **DONE** (`5dc7b63`)
-- **P1-T11** Duplicates, AI analysis, deterministic routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001) — duplicate linked not overwritten; LFR-AI-002 redaction; deterministic rule overrides AI; low confidence → Review. ✅ **DONE** (`be3855e`)
+- **P1-T11** Duplicates, AI analysis, routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001) — duplicate linked not overwritten; LFR-AI-002 redaction; deterministic rule overrides AI; low confidence → Review. ✅ **DONE** (`be3855e`)
 - **P1-T12** Messaging, tasks, corrections, privacy (LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001).
 - **P1-T13** Audit, notifications, observability, retention (FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002) — **append-only via MySQL BEFORE UPDATE/DELETE triggers**; test that `UPDATE` throws.
 - **P1-T14** Assessment module + BAAF scoring (FR-ASMT-001/002, BAAF-001..006).
-- **P1-T15** Dashboard + WCAG 2.2 AA (FR-DASH-001/002, LFR-DASH-*, A11Y-001..006) — **manual a11y pass is mandatory** (axe-core alone insufficient).
+- **P1-T15** Dashboard + WCAG 2.2 AA (FR-DASH-001/002, LFR-DASH-001/002/003, A11Y-001..006) — **manual a11y pass mandatory**.
 
 ## 4. Workflow (best practice — follow exactly)
 For EACH task:

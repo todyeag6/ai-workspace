@@ -1,7 +1,7 @@
 # Aiwebscapes Platform — Session Handoff (Phase 0 → Phase 1)
 
 **Prepared:** 2026-08-05 (end of Phase 0 execution session); **refreshed 2026-08-07** through P1-T10
-**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`; T1–T7.5 pushed to origin, T8–T10 local-only as of 2026-08-07)
+**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`; T1–T11 pushed to origin as of 2026-08-07; working tree clean)
 **Plan:** `C:\Users\CTYea\.hermes\plans\2026-08-05_100000-aiwebscapes-production-system-plan.md` (1,180 lines, source of truth)
 **Read this file first** in the next session, then the plan. It captures live state the plan does not.
 
@@ -126,13 +126,13 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 - **P1-T3** TenantScope + repository base (FR-TEN-002, AC-001) — unscoped queries structurally impossible; PHPStan rule forbids raw `->query()`/`->exec()` on client tables outside `TenantRepository`. ✅ **DONE** (`3a69497`+`4f82f86`+`cadaa94`)
 - **P1-T4** Auth service + tenant authz middleware (FR-IDENT-001/003/004, SEC-005, AC-001) — **deny-by-default**; 403 for both "wrong tenant" and "not found" (no ID enumeration). ✅ **DONE** (`88d4095`)
 - **P1-T5** Agent registry (FR-AGENT-001/002/003) — disabled-by-default, versioning. ✅ **DONE** (`90ccdb3`, pushed to origin)
-- **P1-T6** AI Gateway + schema validation (FR-AI-002/003, AC-003) — invalid output → `disposition='review'`, never a side effect. ✅ **DONE** (`297e915`, NOT yet pushed)
-- **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — **never `gemma4:12b`** on auto (on-demand only); default `qwen3:4b`, quality `hermes3:8b`. ✅ **DONE** (`db2be7e`, NOT yet pushed)
-- **P1-T7.5** Single-resident model policy + 8192 context ceiling (FR-AI-001/004) — `hermes3:8b` prevalent; `LocalModelResolver`; ceiling enforced fail-safe. ✅ **DONE** (`1c25f00`, pushed to origin)
-- **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; **DNS-free SSRF** egress guard (blocks 169.254.169.254 metadata, RFC1918, loopback; no gethostbyname). ✅ **DONE** (`a9a4b3b`, NOT yet pushed)
-- **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency (effect-free replay); high-risk waits for human approval (FR-AI-006 at orchestration level). ✅ **DONE** (`1aa7db3`, NOT yet pushed)
-- **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — **public endpoint**: honeypot accepts-not-persists; throttle **fail-closed** (429); persist-then-enqueue-AI; AI failure → lead stays `Review`; all leads tables tenant-scoped (AC-001). ✅ **DONE** (`5dc7b63`, NOT yet pushed)
-- **P1-T11** Duplicates, AI analysis, routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001) — duplicate **linked not overwritten** + re-analysis appends new version; **LFR-AI-002 allow-list redaction** (no PII/SSN reaches model); **deterministic rule overrides AI** (LFR-ROUTE-001); low confidence → `Review`. ✅ **DONE** (`be3855e`, NOT yet pushed; subagent left it uncommitted + phpstan-red, parent finished the methods + committed)
+- **P1-T6** AI Gateway + schema validation (FR-AI-002/003, AC-003) — invalid output → `disposition='review'`, never a side effect. ✅ **DONE** (`297e915`, pushed)
+- **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — **never `gemma4:12b`** on auto (on-demand only); default `qwen3:4b`, quality `hermes3:8b`. ✅ **DONE** (`db2be7e`, pushed)
+- **P1-T7.5** Single-resident model policy + 8192 context ceiling (FR-AI-001/004) — `hermes3:8b` prevalent; `LocalModelResolver`; ceiling enforced fail-safe. ✅ **DONE** (`1c25f00`, pushed)
+- **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; **DNS-free SSRF** egress guard (blocks 169.254.169.254 metadata, RFC1918, loopback; no gethostbyname). ✅ **DONE** (`a9a4b3b`, pushed)
+- **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency (effect-free replay); high-risk waits for human approval (FR-AI-006 at orchestration level). ✅ **DONE** (`1aa7db3`, pushed)
+- **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — **public endpoint**: honeypot accepts-not-persists; throttle **fail-closed** (429); persist-then-enqueue-AI; AI failure → lead stays `Review`; all leads tables tenant-scoped (AC-001). ✅ **DONE** (`5dc7b63`, pushed)
+- **P1-T11** Duplicates, AI analysis, routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001) — duplicate **linked not overwritten** + re-analysis appends new version; **LFR-AI-002 allow-list redaction** (no PII/SSN reaches model); **deterministic rule overrides AI** (LFR-ROUTE-001); low confidence → `Review`. ✅ **DONE** (`be3855e`, pushed)
 - **P1-T12** Messaging, tasks, corrections, privacy (LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001).
 - **P1-T13** Audit, notifications, observability, retention (FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002) — **append-only via MySQL BEFORE UPDATE/DELETE triggers** (test that `UPDATE` throws).
 - **P1-T14** Assessment module + BAAF scoring (FR-ASMT-001/002, BAAF-001..006).
@@ -165,7 +165,7 @@ The Aiwebscapes **Approved Baseline v1.0** (`C:\Users\CTYea\awsx_docs\`, authori
 4. **`require` is a valid PHP 8 method name** — `Secrets::require()` is fine.
 5. **gitleaks vendor phar false positives** — `.gitleaks.toml` allowlist in place. Real source still scanned.
 6. **Async subagents time out (HTTP 429/524) before committing** or report stale state — re-verify with real `git`/`phpunit`, then commit yourself. Subagent summaries are advisory.
-7. **Daily container exit** — fixed by `restart: unless-stopped` (§3.1). If phpunit REDs with `getaddrinfo failed`, the stack is down, not the code.
+7. **Daily container exit** — fixed by `restart: unless-stopped` (§3.1). If phpunit REDs with `getaddrinfo failed`, the stack is down, not the code. NOTE: MySQL DATA lives in a Docker VOLUME that survives container restart — stray `aiwebscapes_*_iso`/`*_verify` test DBs are NOT auto-removed by a restart; they persist until explicitly `DROP`ped (each DROP is a consent-gated SQL action). Don't claim they self-clean.
 8. **phpcs major bump** to 4.0.4 — ruleset compatible; re-run `composer audit` in CI to keep the gate honest.
 
 ---
