@@ -8,6 +8,7 @@ use App\Security\RateLimiter;
 use App\Tenancy\TenantScope;
 use Closure;
 use DateTimeImmutable;
+use DomainException;
 use PDO;
 use PDOStatement;
 use RuntimeException;
@@ -742,6 +743,133 @@ final class LeadService
         }
 
         return new RouteDecision(self::OWNER_UNASSIGNED, RouteDecision::SOURCE_DEFAULT);
+    }
+
+    /**
+     * LFR-PRIV-001. Returns a portable snapshot of a lead and its cascade data
+     * (data-subject access / portability). Read-only and tenant-scoped; it
+     * copies the personal-data rows into an array WITHOUT deleting them. The
+     * companion deleteLead() is what erases them, and the erasure is itself
+     * recorded in the audit log (which is NOT a child of leads) so the trail
+     * survives after the data is gone.
+     *
+     * @return array<string, mixed>|null Null if no such lead exists in scope.
+     */
+    public function exportLead(int $leadId, string $tenantId): ?array
+    {
+        $scope = new TenantScope($this->tenantNumber($tenantId));
+
+        $statement = $this->execute(
+            'SELECT * FROM leads ' . $scope->where('id = :id'),
+            $scope,
+            ['id' => $leadId]
+        );
+
+        $lead = $statement->fetch(\PDO::FETCH_ASSOC);
+        if (!is_array($lead)) {
+            return null;
+        }
+
+        return [
+            'lead' => $lead,
+            'submissions' => $this->exportChildren(
+                $scope,
+                $leadId,
+                'SELECT * FROM lead_submissions ' . $scope->where('lead_id = :lead_id')
+            ),
+            'analyses' => $this->exportChildren(
+                $scope,
+                $leadId,
+                'SELECT * FROM lead_ai_analyses ' . $scope->where('lead_id = :lead_id')
+            ),
+            'interactions' => $this->exportChildren(
+                $scope,
+                $leadId,
+                'SELECT * FROM lead_interactions ' . $scope->where('lead_id = :lead_id')
+            ),
+            'tasks' => $this->exportChildren(
+                $scope,
+                $leadId,
+                'SELECT * FROM lead_tasks ' . $scope->where('lead_id = :lead_id')
+            ),
+            'corrections' => $this->exportChildren(
+                $scope,
+                $leadId,
+                'SELECT * FROM lead_field_corrections ' . $scope->where('lead_id = :lead_id')
+            ),
+            'duplicates' => $this->exportChildren(
+                $scope,
+                $leadId,
+                'SELECT * FROM lead_duplicates ' . $scope->where('lead_id = :lead_id')
+            ),
+        ];
+    }
+
+    /**
+     * LFR-PRIV-001 + LFR-SEC-001. Erases a lead and its cascade children, then
+     * records the erasure in the audit log.
+     *
+     * LFR-SEC-001 is enforced structurally: the DELETE is built from
+     * TenantScope::where('id = :id'), so a call scoped to a DIFFERENT tenant
+     * than the lead's own tenant resolves to NO row - the lead cannot be
+     * deleted cross-tenant. We fail CLOSED and LOUD: if the scoped delete
+     * reports zero rows, we throw a 403 rather than "succeeding" silently,
+     * because a real deletion always removes at least the lead row. The audit
+     * row is written only when an actual deletion occurred.
+     *
+     * @throws DomainException With code 403 when the lead is not in the
+     *                         caller's scope (LFR-SEC-001).
+     */
+    public function deleteLead(int $leadId, string $tenantId): void
+    {
+        $scope = new TenantScope($this->tenantNumber($tenantId));
+
+        // The lead is the parent; its children cascade via ON DELETE CASCADE.
+        // Wrapped in the surrounding transaction so the audit write and the
+        // delete commit together (or roll back together).
+        $affected = $this->execute(
+            'DELETE FROM leads ' . $scope->where('id = :id'),
+            $scope,
+            ['id' => $leadId]
+        )->rowCount();
+
+        if ($affected === 0) {
+            // Nothing was in scope to delete. Throwing - not returning - is the
+            // secure choice: a caller asking to delete another tenant's lead
+            // must be told no, and must never be able to read "success".
+            throw new DomainException('Not authorised to delete this lead.', 403);
+        }
+
+        // The erasure is retained independently of the lead. audit_log is NOT a
+        // child of leads, so this row outlives the cascade delete (LFR-PRIV-001).
+        $this->execute(
+            'INSERT INTO audit_log (' . TenantScope::COLUMN . ', actor_user_id, event, outcome, object_type, object_id, detail)'
+            . ' VALUES (:' . TenantScope::PARAM . ', :actor, :event, :outcome, :object_type, :object_id, :detail)',
+            $scope,
+            [
+                'actor' => null,
+                'event' => 'lead.erasure',
+                'outcome' => 'success',
+                'object_type' => 'lead',
+                'object_id' => (string) $leadId,
+                'detail' => 'lead and cascade data erased',
+            ]
+        );
+    }
+
+    /**
+     * Runs a child-table export query and returns every row as a list.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function exportChildren(TenantScope $scope, int $leadId, string $sql): array
+    {
+        $statement = $this->execute($sql, $scope, ['lead_id' => $leadId]);
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+
+        return $rows;
     }
 
     /**
