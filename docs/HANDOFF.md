@@ -38,7 +38,7 @@
 | `0ac2fdd` | P0-T6 | `docs/THREAT_MODEL.md` + `docs/adr/0001-modular-monolith.md` |
 | `6301283` | **TODAY fix** | `restart: unless-stopped` + phpcs 4.0.4 (CVE-2026-67434) |
 
-**Current gate status (verified 2026-08-05):** phpunit `OK (18 tests, 47 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0 · `ci-local.sh` → `ALL LOCAL CI GATES PASSED` (6/6).
+**Current gate status (verified 2026-08-07, after P1-T6):** phpunit `OK (91 tests, 233 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0 · `ci-local.sh` → `ALL LOCAL CI GATES PASSED` (6/6). Phase-1 tasks complete: T1–T6. Next: T7 (adapters/router/injection filter).
 
 ---
 
@@ -50,7 +50,7 @@
   - DSNs: `DB_DSN=mysql:host=db;dbname=aiwebscapes`, `TEST_DB_DSN=mysql:host=db;dbname=aiwebscapes_test`, `REDIS_DSN=tcp://redis:6379`.
   - `AI_LOCAL_BASE_URL=http://host.docker.internal:11434/v1` (Ollama on Windows host, GTX 1660 Ti, 6GB).
 - **Repo MUST stay on `C:`** — `E:` is removable exFAT, Docker mounts it silently empty.
-- **No GitHub remote** — never `git push`/`remote add`/`gh`. Commit locally.
+- **GitHub remote EXISTS** — `origin = https://github.com/todyeag6/ai-workspace.git` (since 2026-08-06). Pushes are the OWNER's call: do NOT `git push`/`force-push` without an explicit per-occasion instruction. CI is proven by `scripts/ci-local.sh` (see §9); the remote Actions run is tier-limited on a Free private repo.
 - **gitleaks** runs from HOST: `docker run --rm -v "$(pwd -W)":/repo ghcr.io/gitleaks/gitleaks:latest dir /repo --redact --no-banner --config=/repo/.gitleaks.toml` (exit 1=leaks). An empty mount false-passes — confirm non-zero byte scan.
 - **Requirement text** lives in `C:\Users\CTYea\.hermes\_awsx_extract/*.txt` (7 files). The plan's Traceability Matrix seeds **168 requirements**.
 
@@ -106,10 +106,10 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 **Critical open questions the plan says MUST be resolved before/early in Phase 1** (plan §7) — do NOT silently assume:
 
 1. ~~Deployment model~~ — RESOLVED in plan: both cloud + local, **local-first default**, cloud fallback; AC-006 proven during Phase 1 (not deferred).
-2. **RBAC vs ABAC for v1** (FR-TEN-003) — plan recommends **RBAC for MVP**, ABAC later. **Needs owner sign-off.** (P1-T4 builds authz — pick before that.)
+2. ~~**RBAC vs ABAC for v1** (FR-TEN-003)~~ — RESOLVED in plan: **RBAC for MVP**, ABAC later. Owner sign-off recorded; P1-T4 built authz on RBAC.
 3. **SLA numbers + performance budgets** (NFR Table 5 "agreed per client") — needed to make the release-gate item 7 objective.
 4. **Pen-test window, authorizing party, environment** (SEC-009, SFR-AUTH-001) — **book before Phase 1 exit.** It's a release gate, not a surprise.
-5. **Standards register cadence** — confirm owner + next review date; fix the AISVS→ASVS 5.0 citation wording then.
+5. **Standards register cadence** — confirm owner + next review date. (NOTE: the Standards_Research_Register.txt already correctly lists BOTH "OWASP ASVS 5.0.x" AND "OWASP AISVS" — the earlier handoff note suggesting an "AISVS→ASVS" fix was WRONG; no change needed.)
 6. ~~Repo location~~ — RESOLVED: `C:\Users\CTYea\dev\aiwebscapes-platform` on `C:`. GitHub not set up.
 7. **First tenant's data classes** — drives LFR-AI-002 redaction config.
 
@@ -120,12 +120,12 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 > If the user still has no GitHub remote at Phase 1 exit, the plan considers these open items — flag them explicitly rather than silently skipping.
 
 ### Phase 1 task map (from plan, verbatim IDs)
-- **P1-T1** Tenant + identity schema (FR-TEN-001, FR-IDENT-*) — `migrations/001_tenants_identity.sql`; legacy `users.email UNIQUE` must change to `(tenant_id,email)`.
-- **P1-T2** Password hasher (FR-IDENT-002) — `src/Identity/PasswordHasher.php`, **argon2id**, rehash-on-upgrade.
-- **P1-T3** TenantScope + repository base (FR-TEN-002, AC-001) — make unscoped queries structurally impossible; add a **PHPStan rule** forbidding raw `->query()`/`->exec()` on client tables outside `TenantRepository`.
-- **P1-T4** Auth service + tenant authz middleware (FR-IDENT-001/003/004, SEC-005, AC-001) — **deny-by-default**; return 403 for both "wrong tenant" and "not found" (no ID enumeration).
-- **P1-T5** Agent registry (FR-AGENT-001/002/003) — disabled-by-default, versioning.
-- **P1-T6** AI Gateway + schema validation (FR-AI-002/003, AC-003) — invalid output → `disposition='review'`, never a side effect.
+- **P1-T1** Tenant + identity schema (FR-TEN-001, FR-IDENT-*) — `migrations/001_tenants_identity.sql`; legacy `users.email UNIQUE` → `(tenant_id,email)`. ✅ **DONE** (`cf00ca8`)
+- **P1-T2** Password hasher (FR-IDENT-002) — `src/Identity/PasswordHasher.php`, **argon2id**, rehash-on-upgrade. ✅ **DONE**
+- **P1-T3** TenantScope + repository base (FR-TEN-002, AC-001) — unscoped queries structurally impossible; PHPStan rule forbids raw `->query()`/`->exec()` on client tables outside `TenantRepository`. ✅ **DONE** (`3a69497`+`4f82f86`+`cadaa94`)
+- **P1-T4** Auth service + tenant authz middleware (FR-IDENT-001/003/004, SEC-005, AC-001) — **deny-by-default**; 403 for both "wrong tenant" and "not found" (no ID enumeration). ✅ **DONE** (`88d4095`)
+- **P1-T5** Agent registry (FR-AGENT-001/002/003) — disabled-by-default, versioning. ✅ **DONE** (`90ccdb3`, pushed to origin)
+- **P1-T6** AI Gateway + schema validation (FR-AI-002/003, AC-003) — invalid output → `disposition='review'`, never a side effect. ✅ **DONE** (`297e915`, NOT yet pushed)
 - **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — **never `gemma4:12b`** (exceeds 6GB VRAM); default `qwen3:4b`, quality `hermes3:8b`.
 - **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; SSRF egress guard.
 - **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency; high-risk waits for approval.

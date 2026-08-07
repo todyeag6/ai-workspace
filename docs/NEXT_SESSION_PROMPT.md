@@ -18,10 +18,10 @@ Call `skill_view` on each before you start building:
 
 ## 1. Ground truth (do NOT re-derive)
 - **Host:** Windows 10, `terminal` = bash (git-bash/MSYS), NOT PowerShell. POSIX paths (`/c/Users/...`). `E:` is exFAT and mounts silently empty — keep everything on `C:`.
-- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, 16 commits, tree clean (`vendor/` + `.phpunit.cache/` untracked only).
+- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T6 DONE** (91 tests, 233 assertions green), next is **T7** (adapters/router/injection filter). Live state in `docs/HANDOFF.md`.
 - **No PHP/Composer/mysql on host.** Everything via `docker compose exec -T app ...` (ALWAYS `-T`).
 - **Stack:** `app` (php:8.3-cli, `sleep infinity`, `.:/app`), `db` (mysql:8, `3307:3306`), `redis` (7). DSNs: `TEST_DB_DSN=mysql:host=db;dbname=aiwebscapes_test`. `AI_LOCAL_BASE_URL=http://host.docker.internal:11434/v1` (Ollama, GTX 1660 Ti 6GB — **never `gemma4:12b`**).
-- **No GitHub remote.** Never `git push`/`remote add`/`gh`. Commit locally. CI is proven via `scripts/ci-local.sh`, not GitHub.
+- **GitHub remote EXISTS** — `origin = https://github.com/todyeag6/ai-workspace.git` (since 2026-08-06). Pushing is the OWNER's call: do NOT `git push`/`force-push` without an explicit per-occasion instruction. CI is proven via `scripts/ci-local.sh` (the remote Actions run is tier-limited on a Free private repo — see `docs/HANDOFF.md §9`).
 - **Plan (source of truth):** `C:\Users\CTYea\.hermes\plans\2026-08-05_100000-aiwebscapes-production-system-plan.md` (1,180 lines; Phase 1 starts ~line 510).
 - **Handoff + live state:** `docs/HANDOFF.md` in this repo (covers today's infra fixes + open questions).
 - **Requirement text:** `C:\Users\CTYea\.hermes\_awsx_extract/*.txt` (7 files; traceability matrix seeds 168 requirements).
@@ -30,7 +30,7 @@ Call `skill_view` on each before you start building:
 ```bash
 cd /c/Users/CTYea/dev/aiwebscapes-platform
 docker compose up -d          # applies restart:unless-stopped; wait ~30s for db healthy
-docker compose exec -T app vendor/bin/phpunit   # expect OK (18 tests, 47 assertions)
+docker compose exec -T app vendor/bin/phpunit   # expect OK (91 tests, 233 assertions)
 ```
 If phpunit REDs with `getaddrinfo for db/redis failed`, the containers are down — run `docker compose up -d` again (do NOT go hunting for a code bug; this is the known daily-exit behavior, now self-healing via `restart: unless-stopped`).
 
@@ -83,11 +83,11 @@ bash scripts/ci-local.sh                  # ALL LOCAL CI GATES PASSED (6/6: phpc
 ## 7. OPEN QUESTIONS — resolve BEFORE / early in Phase 1 (plan §7)
 The plan says these MUST be settled before/early in Phase 1. **Surface them to the user; do not silently assume:**
 1. (Resolved in plan) Deployment: cloud + local, **local-first default**, cloud fallback; AC-006 proven during Phase 1.
-2. **RBAC vs ABAC for v1** (FR-TEN-003) — plan recommends **RBAC for MVP**; needs owner sign-off. Decide before P1-T4.
+2. ~~**RBAC vs ABAC for v1** (FR-TEN-003)~~ — RESOLVED in plan: **RBAC for MVP**, ABAC later. P1-T4 built authz on RBAC.
 3. **SLA numbers + performance budgets** (NFR Table 5) — needed to make the release-gate objective.
 4. **Pen-test window + authorizing party + environment** (SEC-009, SFR-AUTH-001) — book before Phase 1 exit; it's a release gate.
-5. **Standards register cadence** — owner + next review date; fix AISVS→ASVS 5.0 wording then.
-6. (Resolved) Repo on `C:`; no GitHub remote.
+5. **Standards register cadence** — owner + next review date. (NOTE: the Standards_Research_Register.txt already correctly lists BOTH "OWASP ASVS 5.0.x" and "OWASP AISVS" — the earlier "AISVS→ASVS" fix note was WRONG; no change needed.)
+6. (Resolved) Repo on `C:`; GitHub remote exists (`todyeag6/ai-workspace`) — owner pushes own.
 7. **First tenant's data classes** — drives LFR-AI-002 redaction config.
 - **GitHub-dependent items required before Phase 1 EXIT (not Phase 0):** (a) Actions running, (b) SEC-008 branch protection on `main`. If still no remote at P1 exit, flag as OPEN ITEMS, not silent skips.
 
