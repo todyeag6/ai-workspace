@@ -159,7 +159,9 @@ abstract class TestCase extends Base
                 throw new RuntimeException(sprintf('Unable to read migration "%s".', $file));
             }
 
-            $statements = array_filter(array_map('trim', explode(';', $sql)));
+            // Real parser (DELIMITER-aware) since P1-T13: triggers carry
+            // semicolons in their bodies, which explode(';') would shatter.
+            $statements = (new \App\Infra\SqlSplitter())->statements($sql);
             foreach ($statements as $statement) {
                 $this->pdo->exec($statement);
             }

@@ -38,19 +38,19 @@ Usage: php scripts/migrate.php --dsn=<pdo-mysql-dsn> [--force]
 TXT;
 
 /**
- * Splits a migration file into statements.
+ * Splits a migration file into executable statements.
  *
- * LIMITATION: this is a naive split on the semicolon character, matching
- * tests/TestCase.php exactly so that both paths agree on what a statement is.
- * It will mis-parse a semicolon inside a string literal or a DELIMITER block,
- * so migrations must not contain either. When P1-T13 introduces triggers this
- * has to be replaced with a real parser - in both places.
+ * REAL PARSER (DELIMITER-aware) since P1-T13: the naive explode(';') splitter
+ * could not parse a semicolon inside a string literal or a DELIMITER block, so
+ * migrations were forbidden to contain them. P1-T13 needs triggers (whose
+ * bodies carry semicolons), so this now delegates to the same App\Infra\SqlSplitter
+ * that tests/TestCase.php uses - keeping both apply paths in lock-step.
  *
  * @return list<string>
  */
 function statementsIn(string $sql): array
 {
-    return array_values(array_filter(array_map('trim', explode(';', $sql))));
+    return (new \App\Infra\SqlSplitter())->statements($sql);
 }
 
 /**
