@@ -1,7 +1,7 @@
 # Aiwebscapes Platform — Session Handoff (Phase 0 → Phase 1)
 
-**Prepared:** 2026-08-05 (end of Phase 0 execution session)
-**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`, ~17 commits as of 2026-08-07: Phase 0 + P1-T1…T6 + doc refreshes)
+**Prepared:** 2026-08-05 (end of Phase 0 execution session); **refreshed 2026-08-07** through P1-T10
+**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`; T1–T7.5 pushed to origin, T8–T10 local-only as of 2026-08-07)
 **Plan:** `C:\Users\CTYea\.hermes\plans\2026-08-05_100000-aiwebscapes-production-system-plan.md` (1,180 lines, source of truth)
 **Read this file first** in the next session, then the plan. It captures live state the plan does not.
 
@@ -39,7 +39,7 @@
 | `0ac2fdd` | P0-T6 | `docs/THREAT_MODEL.md` + `docs/adr/0001-modular-monolith.md` |
 | `6301283` | **TODAY fix** | `restart: unless-stopped` + phpcs 4.0.4 (CVE-2026-67434) |
 
-**Current gate status (verified 2026-08-07, after P1-T6):** phpunit `OK (91 tests, 233 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0 · `ci-local.sh` → `ALL LOCAL CI GATES PASSED` (6/6). Phase-1 tasks complete: T1–T6. Next: T7 (adapters/router/injection filter).
+**Current gate status (verified 2026-08-07, after P1-T10 isolated-DB re-verify):** phpunit `OK (155 tests, 359 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0 (81/81 files). Phase-1 tasks complete: **T1–T10** (T11–T15 remain). Each task verified on its own isolated `TEST_DB_DSN`.
 
 ---
 
@@ -127,15 +127,31 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 - **P1-T4** Auth service + tenant authz middleware (FR-IDENT-001/003/004, SEC-005, AC-001) — **deny-by-default**; 403 for both "wrong tenant" and "not found" (no ID enumeration). ✅ **DONE** (`88d4095`)
 - **P1-T5** Agent registry (FR-AGENT-001/002/003) — disabled-by-default, versioning. ✅ **DONE** (`90ccdb3`, pushed to origin)
 - **P1-T6** AI Gateway + schema validation (FR-AI-002/003, AC-003) — invalid output → `disposition='review'`, never a side effect. ✅ **DONE** (`297e915`, NOT yet pushed)
-- **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — **never `gemma4:12b`** (exceeds 6GB VRAM); default `qwen3:4b`, quality `hermes3:8b`.
-- **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; SSRF egress guard.
-- **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency; high-risk waits for approval.
-- **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — **persist then enqueue AI**; AI failure preserves the lead.
+- **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — **never `gemma4:12b`** on auto (on-demand only); default `qwen3:4b`, quality `hermes3:8b`. ✅ **DONE** (`db2be7e`, NOT yet pushed)
+- **P1-T7.5** Single-resident model policy + 8192 context ceiling (FR-AI-001/004) — `hermes3:8b` prevalent; `LocalModelResolver`; ceiling enforced fail-safe. ✅ **DONE** (`1c25f00`, pushed to origin)
+- **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; **DNS-free SSRF** egress guard (blocks 169.254.169.254 metadata, RFC1918, loopback; no gethostbyname). ✅ **DONE** (`a9a4b3b`, NOT yet pushed)
+- **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency (effect-free replay); high-risk waits for human approval (FR-AI-006 at orchestration level). ✅ **DONE** (`1aa7db3`, NOT yet pushed)
+- **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — **public endpoint**: honeypot accepts-not-persists; throttle **fail-closed** (429); persist-then-enqueue-AI; AI failure → lead stays `Review`; all leads tables tenant-scoped (AC-001). ✅ **DONE** (`5dc7b63`, NOT yet pushed)
 - **P1-T11** Duplicates, AI analysis, deterministic routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001).
 - **P1-T12** Messaging, tasks, corrections, privacy (LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001).
 - **P1-T13** Audit, notifications, observability, retention (FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002) — **append-only via MySQL BEFORE UPDATE/DELETE triggers** (test that `UPDATE` throws).
 - **P1-T14** Assessment module + BAAF scoring (FR-ASMT-001/002, BAAF-001..006).
 - **P1-T15** Dashboard + WCAG 2.2 AA (FR-DASH-001/002, LFR-DASH-*, A11Y-001..006) — **manual a11y pass is mandatory** (axe-core alone insufficient).
+
+### Standards-baseline coverage (approved v1.0 register — reconciliation note)
+The Aiwebscapes **Approved Baseline v1.0** (`C:\Users\CTYea\awsx_docs\`, authoritative `.docx`; PDFs are duplicates, never read) maps to the OWASP/NIST controls below. Phase-1 implementation to date exercises these load-bearing guarantees, each proven by negative tests on an isolated DB:
+
+| Baseline control | Where enforced in code (verified) |
+|---|---|
+| **OWASP ASVS 5.0.x** (V4/V5/V11 authn/authz) | `PasswordHasher` (argon2id, P1-T2); `AuthService` deny-by-default 403 (P1-T4); `ActionAuthority.authorizeTransaction()` refuses high/critical (P1-T7/P1-T9) |
+| **OWASP AISVS** (AI security) | `InjectionFilter` (structural untrusted-content quarantine, P1-T7); `ModelRouter` local-first (P1-T7); `LocalModelResolver` allowlist + 8192 ceiling (P1-T7.5) |
+| **OWASP Top 10:2025 / API Top 10:2023** (SSRF, broken authz) | `ToolGateway` DNS-free SSRF block (169.254.169.254/RFC1918/loopback, P1-T8); `ToolGateway` allowlist-only (AC-002, P1-T8); tenant scoping `TenantScope` (AC-001, P1-T3) |
+| **OWASP GenAI/LLM Top 10** (prompt injection, excessive agency) | `InjectionFilter` (SEC-010/SFR-AI-002, P1-T7); `ActionAuthority` no autonomous high-impact (FR-AI-006, P1-T7/P1-T9); `LeadService` public-endpoint fail-closed throttle + honeypot + persist-before-AI (LBR-5.1, P1-T10) |
+| **NIST AI RMF 1.0 + GenAI Profile** | `AIGateway` invalid-output → `disposition='review'`, never a side effect (AC-003, P1-T6); `Orchestrator` effect-free replay + compensating actions (P1-T9) |
+| **NIST SSDF 1.1 / CSF 2.0** | `ci-local.sh` 6/6 gates; gitleaks + SBOM; idempotent migrations; PHPStan L8 with `NoUnscopedClientQueryRule` |
+| **WCAG 2.2 AA** | P1-T15 (pending) — dashboard + manual a11y pass |
+
+> Reconciliation rule (owner): external-facing claims (deck/proposal/marketing) must be reconciled to this baseline, not over-claimed. P1-T1…T10 are implementation-complete and security-reviewed; T11–T15 remain before the Phase-1 exit gate.
 
 **Phase 1 Exit Gate** (plan §995): suite green in BOTH cloud and local-Ollama configs (AC-006); AC-001/002/003 proven by negative tests; lead MVP 12-step E2E; 10 Lead FRD Table 4 cases pass; axe-core + manual a11y; CI green + SBOM + no critical findings; threat model updated for AI gateway + tool egress; traceability matrix complete.
 

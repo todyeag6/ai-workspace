@@ -18,7 +18,7 @@ Call `skill_view` on each before you start building:
 
 ## 1. Ground truth (do NOT re-derive)
 - **Host:** Windows 10, `terminal` = bash (git-bash/MSYS), NOT PowerShell. POSIX paths (`/c/Users/...`). `E:` is exFAT and mounts silently empty — keep everything on `C:`.
-- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T6 DONE** (91 tests, 233 assertions green), next is **T7** (adapters/router/injection filter). Live state in `docs/HANDOFF.md`.
+- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T10 DONE** (155 tests, 359 assertions green, verified on isolated DBs), next is **T11** (duplicates + AI analysis + routing). Live state in `docs/HANDOFF.md`. T1–T7.5 are on `origin`; T8/T9/T10 are local-only pending owner push.
 - **No PHP/Composer/mysql on host.** Everything via `docker compose exec -T app ...` (ALWAYS `-T`).
 - **Stack:** `app` (php:8.3-cli, `sleep infinity`, `.:/app`), `db` (mysql:8, `3307:3306`), `redis` (7). DSNs: `TEST_DB_DSN=mysql:host=db;dbname=aiwebscapes_test`. `AI_LOCAL_BASE_URL=http://host.docker.internal:11434/v1` (Ollama, GTX 1660 Ti 6GB — **never `gemma4:12b`**).
 - **GitHub remote EXISTS** — `origin = https://github.com/todyeag6/ai-workspace.git` (since 2026-08-06). Pushing is the OWNER's call: do NOT `git push`/`force-push` without an explicit per-occasion instruction. CI is proven via `scripts/ci-local.sh` (the remote Actions run is tier-limited on a Free private repo — see `docs/HANDOFF.md §9`).
@@ -30,7 +30,7 @@ Call `skill_view` on each before you start building:
 ```bash
 cd /c/Users/CTYea/dev/aiwebscapes-platform
 docker compose up -d          # applies restart:unless-stopped; wait ~30s for db healthy
-docker compose exec -T app vendor/bin/phpunit   # expect OK (91 tests, 233 assertions)
+docker compose exec -T app vendor/bin/phpunit   # expect OK (155 tests, 359 assertions)
 ```
 If phpunit REDs with `getaddrinfo for db/redis failed`, the containers are down — run `docker compose up -d` again (do NOT go hunting for a code bug; this is the known daily-exit behavior, now self-healing via `restart: unless-stopped`).
 
@@ -44,10 +44,11 @@ Tasks (from plan §Phase 1, full text + test skeletons are in the plan — read 
 - **P1-T4** Auth service + tenant authz middleware (FR-IDENT-001/003/004, SEC-005, AC-001) — **deny-by-default**; 403 for BOTH "wrong tenant" and "not found" (no ID enumeration).
 - **P1-T5** Agent registry (FR-AGENT-001/002/003) — disabled-by-default, versioning.
 - **P1-T6** AI Gateway + schema validation (FR-AI-002/003, AC-003) — invalid output → `disposition='review'`, never a side effect.
-- **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — default `qwen3:4b`, quality `hermes3:8b`.
-- **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; SSRF egress guard.
-- **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency; high-risk waits for approval.
-- **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — persist THEN enqueue AI; AI failure preserves the lead.
+- **P1-T7** Local + cloud adapters, local-first router, injection filter (FR-AI-001/004/005/006) — default `qwen3:4b`, quality `hermes3:8b`. ✅ **DONE** (`db2be7e`)
+- **P1-T7.5** Single-resident model policy + 8192 context ceiling (FR-AI-001/004) — `hermes3:8b` prevalent; fail-safe ceiling. ✅ **DONE** (`1c25f00`)
+- **P1-T8** Tool/Connector Gateway (FR-TOOL-001/002/003, AC-002) — allowlists not denylists; DNS-free SSRF egress guard. ✅ **DONE** (`a9a4b3b`)
+- **P1-T9** Workflow orchestrator (FR-ORCH-001/002/003) — Redis `SET NX` idempotency; high-risk waits for approval. ✅ **DONE** (`1aa7db3`)
+- **P1-T10** Lead schema + persist-before-AI capture (LFR-CAP-001..004, LBR-5.1) — public endpoint: honeypot + fail-closed throttle + tenant-scoped; AI failure preserves lead. ✅ **DONE** (`5dc7b63`)
 - **P1-T11** Duplicates, AI analysis, deterministic routing (LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001).
 - **P1-T12** Messaging, tasks, corrections, privacy (LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001).
 - **P1-T13** Audit, notifications, observability, retention (FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002) — **append-only via MySQL BEFORE UPDATE/DELETE triggers**; test that `UPDATE` throws.
