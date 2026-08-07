@@ -7,6 +7,7 @@ namespace App\Leads;
 use App\Security\RateLimiter;
 use App\Tenancy\TenantScope;
 use Closure;
+use DateTimeImmutable;
 use PDO;
 use PDOStatement;
 use RuntimeException;
@@ -62,6 +63,16 @@ final class LeadService
     /** LBR-5.1: analysis failed, a human must look at it. */
     public const STATUS_REVIEW = 'Review';
 
+    /**
+     * LFR-AI-003. Below this the model's own verdict is not acted on: the lead
+     * goes to a human instead. The threshold lives here rather than at the call
+     * site so "how sure is sure enough" is one decision, not per-caller taste.
+     */
+    public const MIN_CONFIDENCE = 0.5;
+
+    /** Used when neither a business rule nor the model names a usable owner. */
+    public const OWNER_UNASSIGNED = 'unassigned';
+
     public const RESULT_ACCEPTED = 202;
 
     public const RESULT_INVALID = 422;
@@ -89,6 +100,25 @@ final class LeadService
     private const MAX_COMPANY = 160;
 
     private const MAX_NEED = 2000;
+
+    /**
+     * How far back detectDuplicate() looks. A window rather than "for ever":
+     * the same person enquiring again eighteen months later is a new
+     * opportunity, not a duplicate, and linking it as one buries it under a
+     * closed record.
+     */
+    private const DUPLICATE_WINDOW_DAYS = 30;
+
+    /**
+     * LFR-AI-002. The ONLY lead fields that may reach the model. An allow-list:
+     * a field added to the intake form tomorrow is absent from the AI request
+     * until someone deliberately adds it here.
+     *
+     * Note what is missing - name, email, phone, ip_hash. The model classifies
+     * an enquiry; it does not need to know who sent it, and identifiers handed
+     * to a third party cannot be recalled.
+     */
+    private const AI_ALLOWED_FIELDS = ['company', 'automation_need', 'source'];
 
     /**
      * @param Closure(int, array<string, string|null>): array<string, mixed>|null $analyzer
@@ -133,10 +163,21 @@ final class LeadService
             );
         }
 
+        // Read-only, and BEFORE the insert: run afterwards it would match the
+        // row it is about to create. LFR-DUP-001 links, never merges - the
+        // earlier lead is left exactly as the earlier visitor sent it.
+        $duplicateOf = $this->findDuplicate($scope, $input);
+
         $leadId = $this->persist($scope, $input, $correlationId);
 
         // Past this line the lead is durable. Everything below may fail without
         // costing the business the enquiry (LBR-5.1).
+        $this->recordInteraction($scope, $leadId, $input);
+
+        if ($duplicateOf !== null) {
+            $this->linkDuplicate($scope, $duplicateOf, $leadId);
+        }
+
         $this->queueAnalysis($scope, $leadId, $input);
 
         return $this->receipt(self::RESULT_ACCEPTED, $correlationId);
@@ -541,5 +582,256 @@ final class LeadService
             'message' => $message,
             'errors' => $errors,
         ];
+    }
+
+    // ---------------------------------------------------------------------
+    // P1-T11: duplicates, AI analysis, deterministic routing.
+    // All helpers below are tenant-scoped through TenantScope, exactly like
+    // the capture path above. Nothing here uses PDO::query/exec directly.
+    // ---------------------------------------------------------------------
+
+    /**
+     * LFR-DUP-001. Returns the id of an earlier lead in the SAME tenant that
+     * looks like a repeat of this one, or null. Read-only and called BEFORE
+     * the insert so it can never match the row it is about to create; the
+     * earlier lead is left exactly as sent.
+     *
+     * @param array<string, mixed> $input
+     */
+    private function findDuplicate(TenantScope $scope, array $input): ?int
+    {
+        $email = $this->normalizeEmail($this->text($input, 'email', self::MAX_EMAIL));
+        if ($email === '') {
+            return null;
+        }
+
+        $since = (new DateTimeImmutable())->modify('-' . self::DUPLICATE_WINDOW_DAYS . ' days');
+
+        $statement = $this->execute(
+            'SELECT id FROM leads ' . $scope->where('email = :email AND created_at >= :since'),
+            $scope,
+            ['email' => $email, 'since' => $since->format('Y-m-d H:i:s')]
+        );
+
+        $hit = $statement->fetchColumn();
+        if (is_numeric($hit)) {
+            return (int) $hit;
+        }
+
+        return null;
+    }
+
+    /**
+     * Records that we heard from a lead again. Every submission is its own
+     * interaction row, so a repeat enquiry ACCUMULATES evidence rather than
+     * overwriting it.
+     *
+     * @param array<string, mixed> $input
+     */
+    private function recordInteraction(TenantScope $scope, int $leadId, array $input): void
+    {
+        $this->execute(
+            'INSERT INTO lead_interactions (' . TenantScope::COLUMN . ', lead_id, channel, direction, body)'
+            . ' VALUES (:' . TenantScope::PARAM . ', :lead_id, :channel, :direction, :body)',
+            $scope,
+            [
+                'lead_id' => $leadId,
+                'channel' => 'note',
+                'direction' => 'inbound',
+                'body' => $this->nullableText($input, 'automation_need', self::MAX_NEED),
+            ]
+        );
+    }
+
+    /**
+     * LFR-DUP-001. Links a repeat submission to the original it resembles.
+     * INSERT IGNORE honours the unique (tenant, lead, duplicate) pair, so a
+     * second pass over the same pair is a no-op rather than a duplicate-key
+     * error. The original lead row is NEVER updated by this.
+     */
+    private function linkDuplicate(TenantScope $scope, int $originalId, int $duplicateId): void
+    {
+        $this->execute(
+            'INSERT IGNORE INTO lead_duplicates (' . TenantScope::COLUMN . ', lead_id, duplicate_lead_id)'
+            . ' VALUES (:' . TenantScope::PARAM . ', :lead_id, :duplicate_lead_id)',
+            $scope,
+            ['lead_id' => $originalId, 'duplicate_lead_id' => $duplicateId]
+        );
+    }
+
+    /**
+     * LFR-AI-001 + LFR-AI-003. Turns an (untrusted, arbitrarily-shaped) model
+     * verdict into a typed AnalysisResult and APPENDS a new analysis version
+     * for the lead - never an UPDATE of the prior verdict.
+     *
+     * If the model's confidence is below the floor, the system keeps the lead
+     * for a human (status 'Review') instead of acting on an unsure verdict.
+     *
+     * @param array<string, mixed> $aiResult
+     */
+    public function analyze(array $aiResult, string $tenantId, ?int $leadId = null): AnalysisResult
+    {
+        $scope = new TenantScope($this->tenantNumber($tenantId));
+
+        $confidence = is_numeric($aiResult['confidence'] ?? null) ? (float) $aiResult['confidence'] : 0.0;
+        $status = $this->aiStatus($confidence);
+
+        $result = new AnalysisResult(
+            summary: $this->stringField($aiResult, 'summary'),
+            intent: $this->stringField($aiResult, 'intent'),
+            category: $this->stringField($aiResult, 'category'),
+            urgency: $this->stringField($aiResult, 'urgency'),
+            nextStep: $this->stringField($aiResult, 'next_step'),
+            riskFlags: is_array($aiResult['risk_flags'] ?? null)
+                ? array_values(array_map('strval', $aiResult['risk_flags']))
+                : [],
+            confidence: $confidence,
+            rationale: $this->stringField($aiResult, 'rationale'),
+            status: $status
+        );
+
+        // Persist the verdict as a NEW row, but only when it has a lead to
+        // attach to. A lead-less call (e.g. a pure unit check of the
+        // verdict->status mapping) still returns a fully-formed AnalysisResult;
+        // it simply has nowhere to be filed. Re-analysis of a real lead grows
+        // the history - it never rewrites the prior verdict.
+        if ($leadId !== null) {
+            // The pipeline `status` enum (pending/complete/failed) records that
+            // a verdict was produced; the human DECISION (New vs Review) is the
+            // system's call and is filed inside the JSON, since it is not part
+            // of the model's own schema. AnalysisResult deliberately keeps the
+            // two apart.
+            $this->execute(
+                'INSERT INTO lead_ai_analyses (' . TenantScope::COLUMN . ', lead_id, status, analysis_json)'
+                . ' VALUES (:' . TenantScope::PARAM . ', :lead_id, :status, :analysis_json)',
+                $scope,
+                [
+                    'lead_id' => $leadId,
+                    'status' => 'complete',
+                    'analysis_json' => $this->encode(array_merge(
+                        $result->toArray(),
+                        [
+                            'version' => $this->nextAnalysisVersion($scope, $leadId),
+                            'decision' => $status,
+                        ]
+                    )),
+                ]
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * LFR-ROUTE-001. The business rule decides; the model only suggests. A
+     * parsed rule (e.g. "owner=always-sales") wins outright, and the decision
+     * records that a human-authored rule - not the model - made the call.
+     *
+     * @param array<string, mixed> $aiSuggestion
+     */
+    public function route(array $aiSuggestion, string $businessRule): RouteDecision
+    {
+        $ruleOwner = $this->parseRuleOwner($businessRule);
+        if ($ruleOwner !== null) {
+            return new RouteDecision($ruleOwner, RouteDecision::SOURCE_RULE);
+        }
+
+        $aiOwner = is_string($aiSuggestion['owner'] ?? null) ? $aiSuggestion['owner'] : '';
+        if ($aiOwner !== '') {
+            return new RouteDecision($aiOwner, RouteDecision::SOURCE_AI);
+        }
+
+        return new RouteDecision(self::OWNER_UNASSIGNED, RouteDecision::SOURCE_DEFAULT);
+    }
+
+    /**
+     * LFR-AI-002. Builds the redacted payload for the model. Allow-list only:
+     * the payload is assembled from AI_ALLOWED_FIELDS, so a field the intake
+     * form grows tomorrow is absent until deliberately added here - the
+     * failure mode of "forgot to list it" is omission, never a PII leak.
+     *
+     * @param array<string, mixed> $lead
+     */
+    public function buildAIRequest(array $lead): AIRequest
+    {
+        $allowed = [];
+        foreach (self::AI_ALLOWED_FIELDS as $field) {
+            $value = $lead[$field] ?? null;
+            if (is_scalar($value) && $value !== '') {
+                $allowed[$field] = (string) $value;
+            }
+        }
+
+        return new AIRequest($allowed);
+    }
+
+    /**
+     * The next version number for a lead's analysis history. 1-based; a fresh
+     * lead starts at version 1 and every re-analysis appends.
+     */
+    private function nextAnalysisVersion(TenantScope $scope, ?int $leadId): int
+    {
+        if ($leadId === null) {
+            return 1;
+        }
+
+        // Count only completed verdicts this method produced. capture() also
+        // seeds a 'pending' placeholder row (see queueAnalysis), which must
+        // not offset the re-analysis version numbering - a re-analysis of a
+        // lead is version 1, 2, ... of the verdicts, not of the queue markers.
+        $statement = $this->execute(
+            'SELECT COUNT(*) FROM lead_ai_analyses ' . $scope->where('lead_id = :lead_id AND status = :status'),
+            $scope,
+            ['lead_id' => $leadId, 'status' => 'complete']
+        );
+
+        $count = $statement->fetchColumn();
+
+        return is_numeric($count) ? (int) $count + 1 : 1;
+    }
+
+    /**
+     * LFR-AI-003. Below the confidence floor the verdict is not acted on: a
+     * human reviews it.
+     */
+    private function aiStatus(float $confidence): string
+    {
+        return $confidence < self::MIN_CONFIDENCE ? self::STATUS_REVIEW : self::STATUS_NEW;
+    }
+
+    /**
+     * Parses "owner=always-<team>" into "<team>". The "always-" prefix is the
+     * signal that the rule is deterministic, not a suggestion. Returns null if
+     * the rule does not name an owner we recognise.
+     */
+    private function parseRuleOwner(string $rule): ?string
+    {
+        if (preg_match('/^\s*owner\s*=\s*always-([a-z0-9_-]+)\s*$/i', $rule, $matches) !== 1) {
+            return null;
+        }
+
+        // $matches[1] is non-empty (the pattern requires at least one char),
+        // so the normalised team is always non-empty.
+        return strtolower($matches[1]);
+    }
+
+    /**
+     * Normalises an email for duplicate comparison: lowercased and trimmed.
+     * Comparison is on the stored, normalised form so "A@X.COM" and "a@x.com"
+     * collide as the same person.
+     */
+    private function normalizeEmail(string $email): string
+    {
+        return strtolower(trim($email));
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function stringField(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+
+        return is_scalar($value) ? (string) $value : '';
     }
 }
