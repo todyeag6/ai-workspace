@@ -1,7 +1,7 @@
 # Aiwebscapes Platform — Session Handoff (Phase 0 → Phase 1)
 
 **Prepared:** 2026-08-05 (end of Phase 0 execution session)
-**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`, 15 commits)
+**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`, ~17 commits as of 2026-08-07: Phase 0 + P1-T1…T6 + doc refreshes)
 **Plan:** `C:\Users\CTYea\.hermes\plans\2026-08-05_100000-aiwebscapes-production-system-plan.md` (1,180 lines, source of truth)
 **Read this file first** in the next session, then the plan. It captures live state the plan does not.
 
@@ -14,6 +14,7 @@
 - **Your first action:** `cd /c/Users/CTYea/dev/aiwebscapes-platform && docker compose up -d` (brings the stack with the new restart policy), wait for `db` healthy, then `docker compose exec -T app vendor/bin/phpunit`.
 - **Phase 1 is the next block** (P1-T1…P1-T15, multi-tenant core + lead MVP). It has **5 open questions the plan says must be resolved before/early in Phase 1** — see §6.
 - **Reusable skill exists:** `php-docker-tested-build` (load it with `skill_view(name='php-docker-tested-build')`). It holds every environment gotcha. Memory has the build facts too.
+- **SECURITY-FIRST is the standing discipline (owner directive, 2026-08-07):** every Phase-1 task — design, review, and re-verify — treats security as the PRIMARY axis, not a checklist item. Load-bearing guarantees: **AC-001** (tenant isolation — no unscoped client query), **AC-002** (allowlists not denylists), **AC-003** (a model output that fails schema/policy produces NO external side effect), **FR-AI-006** (AI cannot autonomously authorize high-impact actions), **SEC-005** (deny-by-default), **SEC-010 / SFR-AI-002** (prompt-injection defense; untrusted content is DATA, never instructions), and the **SSRF egress guard** (P1-T8). Rule: when a plan/code skeleton conflicts with a security guarantee already built, reconcile TOWARD the guarantee and flag the deviation — never silently follow the buggy skeleton. Subagent summaries are ADVISORY; always re-verify with real git/phpunit on an ISOLATED TEST_DB_DSN before marking done.
 
 ---
 
