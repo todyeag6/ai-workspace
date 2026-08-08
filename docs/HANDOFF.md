@@ -232,4 +232,48 @@ pushed (`9eb9fa1` is the latest on the remote as of this note).
 
 ---
 
-*This handoff is a living snapshot. The authoritative plan is the `.hermes/plans/...` file; this doc captures live repo state the plan cannot.*
+*This handoff is a living snapshot. The authoritative plan is the `.hermes/plans/...` file; this doc captures live repo state the plan cannot.
+
+---
+
+## 10. P1-T15 — Dashboard + WCAG 2.2 AA (DONE 2026-08-08, local-only)
+
+**Commit:** `feat(dashboard): FR-DASH-001/002 + LFR-DASH-* + A11Y-001..006` (pending owner push).
+**Files:** `migrations/009_dashboard.sql`, `src/Dashboard/{DashboardRepository,DashboardView,DashboardController}.php`, `public/index.php`, `tests/Dashboard/{PipelineTest,AccessibilityTest}.php`.
+
+### Gate results (isolated DB `TEST_DB_DSN`)
+- `phpunit` — **OK (201 tests, 524 assertions)** (baseline 191/489 → +10 tests/+35 assertions from T15).
+- `phpstan analyse` — **[OK] No errors** (L8).
+- `phpcs --standard=phpcs.xml src tests public` — **0 errors** (only pre-existing line-length warnings; no `LineLength` rule configured).
+- `composer audit` — **no security advisories**.
+- `gitleaks` — **no leaks**.
+- **axe-core 4.13.0** against the rendered `/dashboard` (WCAG2A/AA/2.2AA tag set) — **0 violations**.
+- **Manual a11y pass (A11Y-006) recorded** — lang/title/single-h1/landmarks ✓; skip link + native controls + `:focus-visible` 3px outline + no autofocus trap ✓; form `aria-invalid`+`aria-describedby`→`role="alert"` ✓; status text+icon (not colour) ✓; contrast ≥4.5:1 (`#1a1a1a`/white ≈17:1, link `#0b5cab` ≈5.9:1, error `#b00020` ≈5.9:1) ✓; `prefers-reduced-motion` ✓.
+
+### Mutation-proof of the accessibility tests
+Removing `aria-invalid="true"` + `role="alert"` from `leadFormHtml()` made
+`AccessibilityTest::test_form_errors_programmatically_determinable` fail — the
+automated assertions are not vacuous (verified, then reverted).
+
+### Deviations from the plan's T15 skeleton (reconciled toward the built guarantee)
+1. **Pipeline = 5 states**, not the plan's 10. `migrations/005_leads.sql` defines
+   `leads.status` ENUM(`New,Review,Qualified,Disqualified,Converted`); no prior
+   task built the 10-state model. T15 asserts the real 5 and does not mutate the
+   domain model. See `docs/TRACEABILITY.md` §Deviance.
+2. **No web kernel** (Slim/Twig/`public/index.php` absent in the built platform).
+   Followed the existing array-in/out controller convention; `public/index.php`
+   is a minimal, tenant-fixed front controller added only for the axe served gate.
+3. **`message_deliveries` had no outcome signal.** `migrations/009_dashboard.sql`
+   adds idempotent `status`+`error` columns so `failedDeliveries()` reads real data.
+
+### Stray DBs from T15 verification
+Several `*_t15*` / `*_t15b*` / `*_t15c*` / `*_t15d*` / `*_t15full*` / `*_t15gate*`
+isolation DBs were created during verification (CREATE-only, never dropped —
+Docker volume persists). Harmless; drop on owner consent like the T13/T14 strays.
+The dev `aiwebscapes` DB was migrated (009 applied) so the served dashboard is real.
+
+### Phase-1 exit gate — remaining owner actions
+- Push T13 (`e3cfc07`) + T14 (`b9eefd1`) + T15 (this commit).
+- Book pen-test (SEC-009 / SFR-AUTH-001); supply SLA/perf budgets (NFR Table 5).
+- SEC-008 branch protection stays OPEN (GitHub Free private tier — documented, not skipped).
+*
