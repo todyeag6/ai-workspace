@@ -24,7 +24,18 @@ session** (the rest are already committed — see `docs/HANDOFF.md` and
 | AC-001 (tenant isolation of dashboard data) | every read goes through `TenantScope::where()`/`bindTo()`; cross-tenant negative tests | `tests/Dashboard/PipelineTest::test_*_is_tenant_scoped` |
 | LBR-5.8 (exceptions queue for humans) | `awaitingHuman()` + `failedDeliveries()` feeds the dashboard queues | `tests/Dashboard/PipelineTest` queue tests |
 
-## Deviance from plan skeleton (P1-T15) — must-read
+## P2-T1 — Evaluation harness + eval-gated activation (FR-AGENT-003)
+
+| Requirement | Where satisfied | Verified by |
+|---|---|---|
+| FR-AGENT-003 (prompt/config change = new immutable version) | `AgentRegistry::updatePrompt()` → `AgentVersionRepository` (append-only) | `AgentRegistryTest::test_prompt_change_creates_new_version` (built P1-T5) |
+| FR-AGENT-003 (evaluation gates production activation) | `EvaluationReleaseGate::release()` records eval row then calls `activate(evalPassed)` | `AgentRegistryTest::test_evaluation_passed_records_run_and_activates` / `::test_evaluation_failed_records_run_and_blocks_activation` |
+| BRD Table 4 "AI quality" KPI dimensions | `config/eval/GOLDEN_SUITE.php` + `EvalHarness` threshold compare | `EvalHarnessTest::test_passing_measurements_clear_the_gate` |
+| Gate not vacuous | weakening a KPI fails the run | `EvalHarnessTest::test_closing_one_threshold_fails_the_gate` |
+| AC-003 (no side effect on invalid output) | invalid output forces `harmful_invalid_rate=1.0`, gate fails; harness holds only gateway + source | `EvalHarnessTest::test_schema_invalid_output_is_harmful_and_fails` |
+| Append-only eval evidence | `agent_evaluations` ledger (migration 010), `AgentEvaluationRepository` | `AgentRegistryTest::test_evaluation_*_records_run_*` |
+
+### Deviance from plan skeleton (P1-T15) — must-read
 
 The plan's T15 test skeleton assumed artifacts the as-built platform does NOT
 have. Each was reconciled **toward the built security guarantee** (owner

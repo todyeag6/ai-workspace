@@ -223,6 +223,66 @@ final class AgentRegistryTest extends TestCase
         self::assertSame(['crm.read', 'crm.write'], $reread->allowedTools());
     }
 
+    // FR-AGENT-003 — evaluation gates activation -------------------------
+
+    private function passingEval(): \App\Eval\EvalResult
+    {
+        return \App\Eval\EvalResult::build(true, 3, [[
+            'kpi' => 'task_success', 'measured' => 1.0, 'limit' => 0.9,
+            'direction' => 'min', 'passed' => true, 'label' => 'task success',
+        ]]);
+    }
+
+    private function failingEval(): \App\Eval\EvalResult
+    {
+        return \App\Eval\EvalResult::build(false, 3, [[
+            'kpi' => 'task_success', 'measured' => 0.5, 'limit' => 0.9,
+            'direction' => 'min', 'passed' => false, 'label' => 'task success',
+        ]]);
+    }
+
+    public function test_evaluation_passed_records_run_and_activates(): void
+    {
+        $registry = $this->registry();
+        $id = $this->createAgent($registry);
+        $version = $registry->latestVersion($id);
+        self::assertNotNull($version);
+
+        $gate = new \App\Agents\EvaluationReleaseGate($registry, $registry->evaluations());
+        $gate->release($id, $version->id(), $this->passingEval(), ['task_success' => ['limit' => 0.9]]);
+
+        self::assertSame('active', $registry->status($id));
+
+        $eval = $registry->lastEvaluation($id);
+        self::assertNotNull($eval);
+        self::assertSame(1, (int) $eval['passed']);
+        self::assertSame(3, (int) $eval['cases_run']);
+    }
+
+    public function test_evaluation_failed_records_run_and_blocks_activation(): void
+    {
+        $registry = $this->registry();
+        $id = $this->createAgent($registry);
+        $version = $registry->latestVersion($id);
+        self::assertNotNull($version);
+
+        $gate = new \App\Agents\EvaluationReleaseGate($registry, $registry->evaluations());
+
+        try {
+            $gate->release($id, $version->id(), $this->failingEval(), ['task_success' => ['limit' => 0.9]]);
+            self::fail('A failing evaluation must refuse activation.');
+        } catch (\App\Agents\ReleaseGateNotMet $e) {
+            self::assertStringContainsString('gate', strtolower($e->getMessage()));
+        }
+
+        // The failure is recorded (audit trail) AND the agent stays disabled.
+        self::assertSame('disabled', $registry->status($id));
+        $eval = $registry->lastEvaluation($id);
+        self::assertNotNull($eval);
+        self::assertSame(0, (int) $eval['passed']);
+        self::assertSame('task_success', $eval['failed_kpis']);
+    }
+
     // AC-001 ---------------------------------------------------------------
 
     public function test_registry_cannot_be_built_without_a_tenant(): void

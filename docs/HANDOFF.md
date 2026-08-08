@@ -276,4 +276,37 @@ The dev `aiwebscapes` DB was migrated (009 applied) so the served dashboard is r
 - Push T13 (`e3cfc07`) + T14 (`b9eefd1`) + T15 (this commit).
 - Book pen-test (SEC-009 / SFR-AUTH-001); supply SLA/perf budgets (NFR Table 5).
 - SEC-008 branch protection stays OPEN (GitHub Free private tier — documented, not skipped).
+
+---
+
+## 11. P2-T1 — Evaluation harness + activation gate (DONE 2026-08-08, local-only, NOT pushed)
+
+**Commit:** `feat(eval): P2-T1 golden-prompt harness + eval-gated activation (FR-AGENT-003)` (pending owner push).
+**Files:** `config/eval/{KPI_THRESHOLDS,GOLDEN_SUITE}.php`, `src/Eval/{EvalResult,EvalHarness,EvalMeasurementSource,GoldenSuiteSource}.php`, `src/Agents/{AgentEvaluationRepository,EvaluationReleaseGate}.php`, `migrations/010_agent_eval.sql`, `tests/Eval/EvalHarnessTest.php`, `tests/Agents/AgentRegistryTest.php` (+ registry wiring).
+
+### Gate results (isolated DB `TEST_DB_DSN`)
+- `phpunit` — **OK (207 tests, 546 assertions)** (baseline 201/524 → +6 tests/+22 assertions from P2-T1).
+- `phpstan analyse` — **[OK] No errors**. `phpcs --standard=phpcs.xml src tests` — **0 errors** (pre-existing line-length warnings only).
+
+### What P2-T1 delivers (and what was already there)
+- The agent **versioning/registry spine** (AgentRegistry, AgentVersion, FR-AGENT-002/003 immutable versions, disabled-by-default) was already built in P1-T5 and is tested. P2-T1 adds the missing half: the **evaluation harness + the activation gate that consumes its verdict**.
+- `EvalHarness` runs the golden suite through the EXISTING `AIGateway` (schema-validated, side-effect-free by construction — holds only a gateway + measurement source, no PDO/mailer/tool-gateway → AC-003 compliant). It compares the BRD Table 4 KPI dimensions against thresholds and returns a verdict.
+- `EvaluationReleaseGate` records the verdict in an **append-only `agent_evaluations` ledger** (migration 010; preserves the immutable-versions guarantee) and then calls `AgentRegistry::activate(evalPassed)`. The registry never computes the verdict itself (its own design rule — a gate that could open itself is not a gate).
+
+### BASELINE GROUNDING DISCREPANCY — flagged, not papered over
+- The plan says "KPI thresholds from BRD Table 5". **The approved BRD specifies NO numeric KPI targets**, and BRD Table 5 is *Risk → Required Treatment*, not numbers. The 6 KPI **dimensions** (task success, groundedness, human override rate, escalation rate, harmful/invalid output rate, model cost per completed business outcome) come from **BRD Table 4** ("AI quality" measures).
+- Therefore `config/eval/KPI_THRESHOLDS.php` carries explicit **PROPOSED** defaults, flagged "owner to ratify" — not fabricated production numbers. They are change-controlled in one file so a ratifier edits thresholds, not the harness.
+- Golden-suite output schemas use **scalar leaves only**: `SchemaValidator` (P1-T6) rejects `object`/`array` type-names by design, accepting nested objects with scalar leaves only. Documented in `GOLDEN_SUITE.php`.
+
+### Harness design decision (owner-ratified via clarify)
+- **Pure unit harness**: golden inputs → injected fake `ModelAdapter` → asserted outputs. Deterministic, CI-fast, no real model/network. A real-model runner (optional, out of scope) would implement `EvalMeasurementSource` over live runs behind the same interface.
+
+### Key tests (mutation/regression proof)
+- `EvalHarnessTest::test_closing_one_threshold_fails_the_gate` — weakening a measured KPI fails the whole run (gate is not vacuous).
+- `EvalHarnessTest::test_schema_invalid_output_is_harmful_and_fails` — invalid output forces `harmful_invalid_rate=1.0` → fails (AC-003 fail-safe path exercised).
+- `AgentRegistryTest::test_evaluation_failed_records_run_and_blocks_activation` — failing eval records the row AND leaves the agent disabled (audit trail + refusal proven together).
+
+### Phase 2 remaining (per plan)
+P2-T2 connectors + model routing · P2-T3 workflow builder UI + reporting · P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
+
 *

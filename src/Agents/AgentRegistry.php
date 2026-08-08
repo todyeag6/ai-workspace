@@ -73,6 +73,8 @@ final class AgentRegistry
 
     private AgentVersionRepository $versions;
 
+    private AgentEvaluationRepository $evaluations;
+
     /**
      * @param ?int $tenantId Nullable on purpose: a missing tenant fails here,
      *                       inside TenantScope, rather than being coerced to 0
@@ -83,6 +85,12 @@ final class AgentRegistry
     {
         $this->agents = new AgentRepository($pdo, $tenantId);
         $this->versions = new AgentVersionRepository($pdo, $tenantId);
+        $this->evaluations = new AgentEvaluationRepository($pdo, $tenantId);
+    }
+
+    public function evaluations(): AgentEvaluationRepository
+    {
+        return $this->evaluations;
     }
 
     public function tenantId(): int
@@ -295,6 +303,25 @@ final class AgentRegistry
         }
 
         return $versions[count($versions) - 1];
+    }
+
+    /**
+     * The most recent evaluation record for this agent (append-only ledger),
+     * or null if the agent has never been evaluated. Used to prove FR-AGENT-003
+     * ("evaluation before production activation") at audit time.
+     *
+     * @return array<string, scalar|null>|null
+     */
+    public function lastEvaluation(int $agentId): ?array
+    {
+        $rows = $this->evaluations->forAgent($agentId);
+
+        if ($rows === []) {
+            return null;
+        }
+
+        // forAgent() returns insertion order; the last is the most recent.
+        return $rows[count($rows) - 1];
     }
 
     /**
