@@ -309,4 +309,35 @@ The dev `aiwebscapes` DB was migrated (009 applied) so the served dashboard is r
 ### Phase 2 remaining (per plan)
 P2-T2 connectors + model routing · P2-T3 workflow builder UI + reporting · P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
 
+---
+
+## 12. P2-T2 — Reusable connectors + cost-aware model routing (DONE 2026-08-08, local-only, NOT pushed)
+
+**Commit:** `feat(connectors): P2-T2 connector SDK + cost-aware routing (FR-TOOL-003, FR-AI-001)` (pending owner push).
+**Files:** `src/AI/ModelRouter.php` (cost dimension), `src/Connectors/{ConnectorSpec,ConnectorClient,Http/Crm/EmailConnectorClient,ConnectorRegistry,ConnectorExecutor}.php`, `migrations/011_connector_bindings.sql`, `tests/AI/ModelRouterCostTest.php`, `tests/Connectors/ConnectorExecutorTest.php`.
+
+### Gate results (isolated DB `TEST_DB_DSN`)
+- `phpunit` — **OK (218 tests, 565 assertions)** (prior 207/546 → +11 tests / +19 assertions from P2-T2).
+- `phpstan analyse` — **[OK] No errors**. `phpcs --standard=phpcs.xml src tests` — **0 errors** (pre-existing line-length warnings only).
+
+### What P2-T2 delivers (and what was already there)
+- **Already built in P1** (surveyed, not re-plumbed): `tools`/`connectors` catalogue (migration 003), the P1-T8 `ToolGateway` decision engine (allowlist + SSRF + egress + high-impact `ActionAuthority` — it DECIDES, performs no egress), and the full model-routing spine (`ModelRouter`, `LocalModelResolver`, `CloudAdapter`/`LocalAdapter`). P2-T2 adds the two genuine gaps the plan names.
+- **Cost-aware routing (FR-AI-001, "cost/latency/quality"):** `ModelRouter::select()` gained an optional cost dimension (`costCeilingCents`, `localCostCents`, `cloudCostCents`). Local-first is preserved; cloud is chosen only when local is unreachable OR local exceeds the ceiling and cloud clears it; when nothing fits the budget+ceiling the call goes to `review`. A null ceiling keeps the pre-P2-T2 behaviour for every existing caller (AdapterTest still passes).
+- **Connector execution SDK (FR-TOOL-003, "connector SDK on the P1-T8 gateway"):** the `connectors` table existed but nothing executed an approved tool call through it. Added `ConnectorSpec` (vetted destination, never model-supplied), `ConnectorClient` interface + `Http`/`Crm`/`Email` clients (injected transport → unit-testable, no socket), `ConnectorRegistry` (resolves tool→connector from the catalogue via new `connector_bindings` table, migration 011), and `ConnectorExecutor` — the **actor** that takes the gateway's decision record and performs the single egress. Decider (`ToolGateway`) ≠ actor (`ConnectorExecutor`), preserving the AC-003 split. The actor performs NO allowlist/SSRF/egress re-check.
+
+### Design decisions / faithful-to-built
+- **Migration 011** follows the project idempotency contract: `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE` only, no ALTER/DROP. It seeds the `connectors` rows (003 created the table but seeded none) and the `connector_bindings` (tool→connector) the SDK needs.
+- **No silent default connector type:** `ConnectorExecutor` throws if no client handles the resolved type — an unknown type is refused, not swallowed.
+- **Empty-key bug fixed during TDD:** `is_string($params['x'] ?? '')` is `true` for a missing key (empty string is a string), which returned the undefined key. Switched to explicit non-empty checks across all three clients (mutation-style catch during the run).
+
+### Key tests (regression / non-vacuous)
+- `ModelRouterCostTest::test_review_when_both_runtimes_exceed_cost_ceiling` — over-ceiling on both → `review`, not `local`.
+- `ModelRouterCostTest::test_cost_ignored_when_no_ceiling_supplied` — backward-compatible pre-P2-T2 path pinned.
+- `ConnectorExecutorTest::test_executor_refuses_without_gateway_decision` — actor never runs an unauthorised record.
+- `ConnectorExecutorTest::test_unknown_connector_type_has_no_silent_default` — missing client → exception.
+- `ConnectorExecutorTest::test_gateway_still_refuses_unlisted_tool_before_execution` — decider still guards the actor.
+
+### Phase 2 remaining (per plan)
+P2-T3 workflow builder UI + reporting · P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
+
 *

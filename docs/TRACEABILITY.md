@@ -35,6 +35,16 @@ session** (the rest are already committed — see `docs/HANDOFF.md` and
 | AC-003 (no side effect on invalid output) | invalid output forces `harmful_invalid_rate=1.0`, gate fails; harness holds only gateway + source | `EvalHarnessTest::test_schema_invalid_output_is_harmful_and_fails` |
 | Append-only eval evidence | `agent_evaluations` ledger (migration 010), `AgentEvaluationRepository` | `AgentRegistryTest::test_evaluation_*_records_run_*` |
 
+## P2-T2 — Reusable connectors + cost-aware routing (FR-TOOL-003, FR-AI-001)
+
+| Requirement | Where satisfied | Verified by |
+|---|---|---|
+| FR-AI-001 (routing local/cloud/review) | `ModelRouter::select()` (latency+quality, P1) + cost dimension (P2-T2) | `AdapterTest` (P1) + `ModelRouterCostTest` (P2-T2) |
+| FR-AI-001 cost dimension ("cost/latency/quality") | `select()` cost ceiling; local-first preserved; over-ceiling both → `review` | `ModelRouterCostTest::test_review_when_both_runtimes_exceed_cost_ceiling` |
+| FR-TOOL-003 (approved egress only, from catalogue) | `ConnectorSpec` (base_url from `connectors` table, never model-supplied) + `ConnectorRegistry` | `ConnectorExecutorTest::test_registry_resolves_tool_to_vetted_connector` |
+| AC-003 (decider ≠ actor) | `ToolGateway` decides; `ConnectorExecutor` acts; actor does no re-check | `ConnectorExecutorTest::test_executor_refuses_without_gateway_decision`, `::test_gateway_still_refuses_unlisted_tool_before_execution` |
+| No silent default connector type | executor throws if no client handles type | `ConnectorExecutorTest::test_unknown_connector_type_has_no_silent_default` |
+
 ### Deviance from plan skeleton (P1-T15) — must-read
 
 The plan's T15 test skeleton assumed artifacts the as-built platform does NOT
