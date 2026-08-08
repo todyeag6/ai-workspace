@@ -54,6 +54,17 @@ session** (the rest are already committed — see `docs/HANDOFF.md` and
 | BRD Table 4/6 reporting (6 kinds, WCAG-AA) | `ReportAssembler` renders assessment/operational/executive/security/sla/acceptance as `<section aria-labelledby>` + scoped table | `ReportAssemblerTest::test_all_six_kinds_render_accessible_scaffold` |
 | SEC-010 / SFR-AI-002 (untrusted content is data) | every report field `htmlspecialchars`-escaped | `ReportAssemblerTest::test_untrusted_metric_value_is_escaped`, `::test_untrusted_section_cell_is_escaped` |
 
+## P2-T4 — Managed-operations substrate (BR-9.1, BR-11.1, BR-12.6, BRD Table 4)
+
+| Requirement | Where satisfied | Verified by |
+|---|---|---|
+| BR-9.1 update/backup owner + support boundary | `agent_ownership` ledger (7 roles + `support_boundary`); `AgentOwnership` VO | `AgentOwnershipTest::test_role_names_match_baseline` |
+| BR-11.1 five accountable roles per engagement | `AgentOwnership` `roleNames()` (business/technical/data/security owner + acceptance authority + update + backup) | `AgentOwnershipTest::test_role_names_match_baseline` |
+| BRD Table 4 Security KPI: patch SLA / breach | `agent_slas` + `SlaRecord` (breach = observed > target, computed immutably) | `SlaRecordTest::test_exceeding_target_is_a_breach`, `ManagedOpsRepositoryTest::test_sla_breach_round_trips_and_query_filters` |
+| BR-12.6 incident contacts / patching responsibility | `SupportModel` VO (tiers + contacts + boundary) | `SupportModelTest::test_builds_a_valid_model`, `::test_rejects_unknown_tier` |
+| AC-001 / FR-TEN-002 tenant scoping | repos extend `TenantRepository` | `ManagedOpsRepositoryTest::test_tenant_scope_isolates_ownership`, `::test_sla_tenant_scope_isolates` |
+| Append-only accountability ledger | `agent_ownership`/`agent_slas` expose assign()/record() only | `ManagedOpsRepositoryTest::test_ownership_is_append_only` |
+
 ### Deviance from plan skeleton (P1-T15) — must-read
 
 The plan's T15 test skeleton assumed artifacts the as-built platform does NOT

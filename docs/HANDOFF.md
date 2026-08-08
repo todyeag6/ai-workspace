@@ -370,4 +370,41 @@ P2-T3 workflow builder UI + reporting · P2-T4 managed-ops substrate · P2-T5 pa
 ### Phase 2 remaining (per plan)
 P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
 
+---
+
+## 14. P2-T4 — Managed-operations substrate (DONE 2026-08-08, local-only, NOT pushed)
+
+**Commit:** `feat(managed-ops): P2-T4 ownership ledger + SLA tracking + support model (BR-9.1/BR-11.1/BR-12.6)` (pending owner push).
+**Files:** `migrations/012_managed_ops.sql`, `src/ManagedOps/AgentOwnership.php`, `src/ManagedOps/AgentOwnershipRepository.php`, `src/ManagedOps/SlaRecord.php`, `src/ManagedOps/SlaRepository.php`, `src/ManagedOps/SupportModel.php`, `tests/ManagedOps/`.
+
+### Gate results (isolated DB `TEST_DB_DSN`)
+- `phpunit` — **OK (251 tests, 655 assertions)** (prior 233/619 → +18 tests / +36 assertions from P2-T4).
+- `phpstan analyse` — **[OK] No errors**. `phpcs --standard=phpcs.xml src tests` — **0 errors** (pre-existing line-length warnings only).
+
+### What P2-T4 delivers (baseline-mandated, did not exist before)
+Grep across `src/`/`migrations/` found NO SLA, ownership or support-model concept (only the reporting module's WCAG copy mentions "SLA"). P2-T4 builds the three managed-ops primitives the BRD makes explicit MUSTs:
+- **BR-9.1 [Must]** — every solution names an **update owner**, **backup owner**, and **support boundary**.
+- **BR-11.1 [Must]** — each engagement assigns a **business owner, technical owner, data owner, security owner, acceptance authority**.
+- **BRD Table 4 "Security" KPI** — **patch SLA**, incident frequency, **backup restore test success** (→ SLA tracking with targets + observed + breach).
+- **BR-12.6 [Must]** — patching responsibility, incident contacts, vulnerability intake (→ support model surface).
+
+### Design (faithful to built)
+- **`agent_ownership` (append-only ledger, migration 012):** carries the 7 BR-9.1/BR-11.1 accountable roles + `support_boundary` + `assigned_by`. Reassigning ownership writes a NEW row, never an UPDATE — the accountability history is tamper-evident (a release whose ownership can be silently rewritten is not a gate). Mirrors `agent_evaluations` immutability.
+- **`agent_slas` (append-only ledger, migration 012):** one row per measurement of `patch` / `incident_response` / `backup_restore_test` (the BRD Table 4 security SLA types) with `target_hours` + `observed_hours` + a `breached` flag. Breach = observed > target, computed by `SlaRecord` at construction so the immutable row's flag cannot drift from the numbers.
+- **`SupportModel` (pure value object, no schema):** tiers `basic|standard|premium|mission_critical`, named escalation `contacts`, and the `boundary` text. No table because it is engagement *configuration* that travels with the ownership record, not an event.
+- **Repos** extend `App\Data\TenantRepository` (like P2-T1's `AgentEvaluationRepository`): tenant-scoped, append-only, AC-001/FR-TEN-002 inherited. No raw `query()`/`exec()` (PHPStan `NoUnscopedClientQueryRule`).
+
+### Key tests (regression / non-vacuous)
+- `ManagedOpsRepositoryTest::test_ownership_is_append_only` — reassign writes a new row; latest is current.
+- `ManagedOpsRepositoryTest::test_tenant_scope_isolates_ownership` / `::test_sla_tenant_scope_isolates` — tenant A rows invisible to tenant B repo (AC-001).
+- `ManagedOpsRepositoryTest::test_sla_breach_round_trips_and_query_filters` — breach flag survives the ledger; `breaches()` returns only breached rows.
+- `SlaRecordTest::test_meeting_target_is_not_a_breach` / `::test_exceeding_target_is_a_breach` — the breach rule (exactly meeting target = pass).
+- `AgentOwnershipTest::test_refuses_unknown_role_lookup` — typo'd role fails loud, never reads "no owner".
+
+### Note: ORDER BY pitfall (caught by tests)
+`TenantRepository::selectScoped()` accepts only a pure WHERE predicate — `TenantScope::where()` appends the scope predicate AFTER it, so a `WHERE ... ORDER BY` would produce `... ORDER BY x AND tenant_id = ?` (invalid). The repos therefore fetch without ORDER BY and sort in PHP (`breaches()` newest-first; `forAgent()`/`current()` ascending by id, which is insertion order). This is a real constraint of the shared base; tests caught the dangling-SQL error.
+
+### Phase 2 remaining (per plan)
+P2-T5 packaged vertical offering.
+
 *
