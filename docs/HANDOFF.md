@@ -340,4 +340,34 @@ P2-T2 connectors + model routing · P2-T3 workflow builder UI + reporting · P2-
 ### Phase 2 remaining (per plan)
 P2-T3 workflow builder UI + reporting · P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
 
+---
+
+## 13. P2-T3 — Workflow builder + reporting suite (DONE 2026-08-08, local-only, NOT pushed)
+
+**Commit:** `feat(reporting): P2-T3 workflow builder + 6-report WCAG-AA suite (FR-ORCH-003, BRD Table 4/6)` (pending owner push).
+**Files:** `src/Workflow/WorkflowDefinition.php`, `src/Workflow/WorkflowBuilder.php`, `src/Reporting/ReportData.php`, `src/Reporting/ReportAssembler.php`, `tests/Workflow/WorkflowBuilderTest.php`, `tests/Reporting/ReportAssemblerTest.php`.
+
+### Gate results (isolated DB `TEST_DB_DSN`)
+- `phpunit` — **OK (233 tests, 619 assertions)** (prior 218/565 → +15 tests / +54 assertions from P2-T3).
+- `phpstan analyse` — **[OK] No errors**. `phpcs --standard=phpcs.xml src tests` — **0 errors** (pre-existing line-length warnings only).
+
+### What P2-T3 delivers (and what was already there)
+- **Already built in P1** (surveyed, not re-plumbed): the workflow *engine* — `Orchestrator` (FR-ORCH-001/002/003: idempotent retry, approval-gated high-impact, compensation), `RedisIdempotency` (SET NX claim before effect), `WorkflowEffector` (the actor). Plus `AssessmentService` (readiness assessment) and the `Dashboard` read-model/render (WCAG-AA). P2-T3 adds the two genuine gaps the plan names.
+- **Workflow builder (the missing definition/validation seam):** `WorkflowBuilder` validates a definition BEFORE the engine runs — known step types only (`charge`/`reserve_stock`/`fail`, mirrored from `Orchestrator::COMPENSATIONS`+trigger), valid risk classes (`low`/`medium`/`high`/`critical`), high|critical steps flag `requiresApproval` (FR-ORCH-003 / FR-AI-006 — no autonomous high-impact), and distinct non-trigger step types (so the engine's index+type idempotency key never collapses two steps). It freezes a validated `WorkflowDefinition` (immutable value object) the Orchestrator consumes. Catching malformed workflows at authoring, not at charge time.
+- **Reporting suite (BRD-grounded):** `ReportAssembler` renders the six report kinds the plan lists — assessment, operational, executive, security, sla, acceptance — grounded in BRD Table 2 (product capabilities), Table 4 (Operational/Security KPI categories), §10 (improve loop), BR-12.4 (acceptance), OBJ-08 (assessment method), and WCAG Table 6 (accessible reports). Output is WCAG 2.2 AA HTML: `<section aria-labelledby>`, labelled `<h1>`, scoped `<th>` table headers, `<time>` stamp. **Every field is `htmlspecialchars`-escaped** (SEC-010 / SFR-AI-002: reports aggregate multi-tenant data, so values are data, never markup). Side-effect-free, like the dashboard view — the caller decides where the HTML goes.
+
+### Design decisions / faithful-to-built
+- **Value-object + assembler, no I/O in either** — matches the `DashboardView` read-model pattern and the Orchestrator's decider≠actor split. `ReportData` is built from real sources by a controller/repository; `ReportAssembler` only shapes it.
+- **Builder's known-step vocabulary is mirrored, not imported, from the engine** so authoring fails closed on the same types the runtime executes (a typo can't reach `perform()` as an unknown step).
+- **No new migration** — P2-T3 adds no schema: the builder is pure validation and the assembler is pure rendering; both operate on data the existing `workflow_*` / agent / eval tables already hold.
+
+### Key tests (regression / non-vacuous)
+- `WorkflowBuilderTest::test_rejects_unknown_step_type` / `::test_rejects_unknown_risk_class` — malformed workflows refused at authoring.
+- `WorkflowBuilderTest::test_high_impact_flags_requires_approval` + `::test_rejects_duplicate_non_trigger_step_type` — the two invariants the engine relies on are proven upstream.
+- `ReportAssemblerTest::test_untrusted_metric_value_is_escaped` + `::test_untrusted_section_cell_is_escaped` — hostile values cannot become markup (the core security property of the assembler).
+- `ReportAssemblerTest::test_all_six_kinds_render_accessible_scaffold` — every kind emits the landmark + labelled heading + scoped table.
+
+### Phase 2 remaining (per plan)
+P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
+
 *

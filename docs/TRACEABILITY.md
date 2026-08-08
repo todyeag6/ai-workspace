@@ -45,6 +45,15 @@ session** (the rest are already committed — see `docs/HANDOFF.md` and
 | AC-003 (decider ≠ actor) | `ToolGateway` decides; `ConnectorExecutor` acts; actor does no re-check | `ConnectorExecutorTest::test_executor_refuses_without_gateway_decision`, `::test_gateway_still_refuses_unlisted_tool_before_execution` |
 | No silent default connector type | executor throws if no client handles type | `ConnectorExecutorTest::test_unknown_connector_type_has_no_silent_default` |
 
+## P2-T3 — Workflow builder + reporting suite (FR-ORCH-003, BRD Table 4/6)
+
+| Requirement | Where satisfied | Verified by |
+|---|---|---|
+| FR-ORCH-003 / FR-AI-006 (no autonomous high-impact) | `WorkflowBuilder` flags `requiresApproval` for high\|critical steps; engine still gates at run | `WorkflowBuilderTest::test_high_impact_flags_requires_approval` |
+| Definition validated before run (not at charge time) | `WorkflowBuilder::build()` refuses unknown step type / risk / duplicate | `WorkflowBuilderTest::test_rejects_*` |
+| BRD Table 4/6 reporting (6 kinds, WCAG-AA) | `ReportAssembler` renders assessment/operational/executive/security/sla/acceptance as `<section aria-labelledby>` + scoped table | `ReportAssemblerTest::test_all_six_kinds_render_accessible_scaffold` |
+| SEC-010 / SFR-AI-002 (untrusted content is data) | every report field `htmlspecialchars`-escaped | `ReportAssemblerTest::test_untrusted_metric_value_is_escaped`, `::test_untrusted_section_cell_is_escaped` |
+
 ### Deviance from plan skeleton (P1-T15) — must-read
 
 The plan's T15 test skeleton assumed artifacts the as-built platform does NOT
