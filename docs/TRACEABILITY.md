@@ -100,7 +100,7 @@ directive) rather than expanding scope:
 - [x] Manual a11y pass (A11Y-006) recorded 2026-08-08.
 - [~] AC-001/002/003 negative tests present (T3/T8/T6 respectively) and green.
 - [~] Lead MVP 12-step E2E + Lead FRD Table 4 cases — owned by T10–T12 suites (not T15).
-- [ ] Owner push of T13 (`e3cfc07`) + T14 (`b9eefd1`) — pending owner action.
+- [x] T13 (`e3cfc07`) + T14 (`b9eefd1`) + T15 (`e540405`) + Phase 2 (P2-T1…T4, workflow `1aa7db3`, CI `d528f0e`) — all committed and pushed to `origin/main` (HEAD `d5ae649`, remote pushed 2026-08-08). No pending pushes.
 - [ ] Pen-test window (SEC-009 / SFR-AUTH-001) — OPEN, book before release.
 - [ ] SLA numbers / performance budgets (NFR Table 5) — OPEN, owner input.
 - [ ] SEC-008 branch protection — BLOCKED by GitHub Free tier; documented OPEN, not skipped.

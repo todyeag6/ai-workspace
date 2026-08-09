@@ -7,7 +7,7 @@
 
 ---
 
-You are continuing the **Aiwebscapes Platform** build. This is a hardened PHP 8 / MySQL 8 / Redis production system built from a legacy baseline, executed against an approved plan. Phase 0 (foundation hardening) is COMPLETE and green, and **Phase-1 tasks T1–T14 are DONE** (verified on isolated DBs). Your job is to finish **P1-T15** (Dashboard + WCAG 2.2 AA), then reach the **Phase 1 exit gate**.
+You are continuing the **Aiwebscapes Platform** build. This is a hardened PHP 8 / MySQL 8 / Redis production system built from a legacy baseline, executed against an approved plan. Phase 0 (foundation hardening) is COMPLETE and green, and **Phase-1 tasks T1–T14 are DONE** (verified on isolated DBs). **P1-T15** (Dashboard + WCAG 2.2 AA) is DONE and pushed; Phase 2 (P2-T1…T4, plus workflow orchestration and CI hardening) is in progress and pushed.
 
 ## 0. Load these skills first (mandatory)
 Call `skill_view` on each before you start building:
@@ -18,7 +18,7 @@ Call `skill_view` on each before you start building:
 
 ## 1. Ground truth (do NOT re-derive)
 - **Host:** Windows 10, `terminal` = bash (git-bash/MSYS), NOT PowerShell. POSIX paths (`/c/Users/...`). `E:` is exFAT and mounts silently empty — keep everything on `C:`.
-- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T14 DONE** (191 tests, 489 assertions green, verified on isolated DBs). `origin/main` has T1–T12 (`81e99d4`); **T13 (`e3cfc07`) and T14 (`b9eefd1`) are local-only, pending owner push**. Next is **P1-T15** (Dashboard + WCAG 2.2 AA).
+- **Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform`, branch `main`, tree clean. Phase 1 progress: **T1–T14 DONE** (191 tests, 489 assertions green, verified on isolated DBs). **T1–T15 are DONE and pushed** (tests green, phpstan L8, phpcs 0). All of Phase 1 plus P2-T1…T4, workflow orchestration (`1aa7db3`), and CI hardening (`d528f0e`) are committed and pushed to `origin/main` (HEAD `d5ae649`, remote pushed 2026-08-08, verified).
 - **No PHP/Composer/mysql on host.** Everything via `docker compose exec -T app ...` (ALWAYS `-T`).
 - **Stack:** `app` (php:8.3-cli, `sleep infinity`, `.:/app`), `db` (mysql:8, `3307:3306`), `redis` (7). DSNs: `TEST_DB_DSN=mysql:host=db;dbname=aiwebscapes_test`. `AI_LOCAL_BASE_URL=http://host.docker.internal:11434/v1` (Ollama, GTX 1660 Ti 6GB — **never `gemma4:12b`**).
 - **GitHub remote EXISTS** — `origin = https://github.com/todyeag6/ai-workspace.git`. Pushing is the OWNER's call: do NOT `git push`/`force-push` without an explicit per-occasion instruction.
@@ -37,7 +37,7 @@ If phpunit REDs with `getaddrinfo for db/redis failed`, the containers are down 
 ## 3. Phase 1 scope + the linchpin rule
 **Plan directive (verbatim):** *"Tenancy first. Do not build features before P1-T4 passes — every later requirement inherits AC-001."* Tenancy (P1-T3/T4) is DONE and proven; the PHPStan `NoUnscopedClientQueryRule` forbids raw client queries.
 
-Tasks (T1–T14 DONE; T15 remains):
+Tasks (Phase 1 T1–T15 DONE & pushed; Phase 2 P2-T1…T4 + workflow + CI DONE & pushed):
 - **P1-T1** Tenant + identity schema — ✅ `cf00ca8`
 - **P1-T2** Password hasher (argon2id) — ✅
 - **P1-T3** TenantScope + repository base (AC-001) — ✅ `3a69497`+
@@ -51,9 +51,9 @@ Tasks (T1–T14 DONE; T15 remains):
 - **P1-T10** Lead schema + persist-before-AI capture (LBR-5.1) — ✅ `5dc7b63`
 - **P1-T11** Duplicates, AI analysis, routing — ✅ `be3855e`
 - **P1-T12** Messaging, tasks, corrections, privacy — ✅ `81e99d4` (PUSHED)
-- **P1-T13** Audit/notifications/observability/retention — ✅ `e3cfc07` (LOCAL-ONLY, pending push). Append-only via MySQL `BEFORE UPDATE/DELETE` `SIGNAL` triggers (`migrations/007_audit.sql`); `src/Infra/SqlSplitter.php` made the migration runner DELIMITER-aware.
-- **P1-T14** Assessment + BAAF scoring — ✅ `b9eefd1` (LOCAL-ONLY, pending push). `migrations/008_assessment.sql` (plan said `007` but `007` taken); fail-closed BAAF gates BAAF-003/004/005/006 + §3.
-- **P1-T15** Dashboard + WCAG 2.2 AA (FR-DASH-001/002, LFR-DASH-001/002/003, A11Y-001..006). `src/Dashboard/DashboardController.php` + twig + `public/index.php`. **Manual a11y pass MANDATORY** (axe-core alone insufficient). Commit: per plan.
+- **P1-T13** Audit/notifications/observability/retention — ✅ `e3cfc07` (PUSHED). Append-only via MySQL `BEFORE UPDATE/DELETE` `SIGNAL` triggers (`migrations/007_audit.sql`); `src/Infra/SqlSplitter.php` made the migration runner DELIMITER-aware.
+- **P1-T14** Assessment + BAAF scoring — ✅ `b9eefd1` (PUSHED). `migrations/008_assessment.sql` (plan said `007` but `007` taken); fail-closed BAAF gates BAAF-003/004/005/006 + §3.
+- **P1-T15** Dashboard + WCAG 2.2 AA (FR-DASH-001/002, LFR-DASH-001/002/003, A11Y-001..006). `src/Dashboard/DashboardController.php` + twig + `public/index.php`. **Manual a11y pass MANDATORY** (axe-core alone insufficient). DONE — commit `e540405`.
 
 ## 4. Workflow (best practice — follow exactly)
 For EACH task:
@@ -81,17 +81,17 @@ bash scripts/ci-local.sh                  # ALL LOCAL CI GATES PASSED (6/6: phpc
 - **Verify claims with real tool output**, never summarize from memory. Produce ad-hoc verification via a temp script named with the `hermes-verify-` prefix in `%TEMP%`, run it, report `VERIFY_EXIT`, then delete it.
 - **CRLF:** `.gitattributes` is committed — do not remove it. `.sh` files must be LF in-container.
 - **`mysql-client`** in the Dockerfile (binary `mysql`), NOT `default-mysql-client`.
-- **Stray iso/verify DBs do NOT self-clean** (Docker volume). ~19 from T13/T14 verification remain; see `docs/SESSION_HANDOFF_P1T14.md` Cleanup backlog. Drop only with owner consent.
+- **Stray iso/verify DBs do NOT self-clean** (Docker volume). **0 stray iso/verify test DBs remain** (Docker volume clean as of 2026-08-09; `SHOW DATABASES LIKE 'aiwebscapes_%'` returns no `*_iso`/`*_verify`). No cleanup needed.
 
 ## 7. OPEN QUESTIONS — resolve BEFORE Phase-1 exit (plan §7)
 1. SLA numbers + performance budgets (NFR Table 5) — needed for release-gate item 7.
-2. Pen-test window + authorizing party + environment (SEC-009, SFR-AUTH-001) — book before Phase 1 exit; it's a release gate.
+2. Pen-test window + authorizing party + environment (SEC-009, SFR-AUTH-001) — book as an ongoing release-readiness item.
 3. Standards register cadence — owner + next review date.
 4. First tenant's data classes — drives LFR-AI-002 redaction config.
 5. **SEC-008 branch protection is BLOCKED by the GitHub Free tier** (both legacy + rulesets APIs return `403 "Upgrade to GitHub Pro"`). Stay private + free; owner pushes own. Document SEC-008 as OPEN, not skipped.
 
 ## 8. Stop condition
-Reach the **Phase 1 Exit Gate** (plan §995): suite green in BOTH cloud and local-Ollama configs (AC-006); AC-001/002/003 proven by negative tests; lead MVP 12-step E2E in one integration test; 10 Lead FRD Table 4 cases pass; axe-core + manual a11y; CI green + SBOM + no critical findings; threat model updated for AI gateway + tool egress; traceability matrix complete. **Do not drift into Phase 2+.** After T15: owner pushes T13 + T14, then the exit gate. Update `docs/HANDOFF.md`, `docs/SESSION_HANDOFF_P1T14.md`, and `docs/TRACEABILITY.md` for the next session.
+Reach the **Phase 1 Exit Gate** (plan §995): suite green in BOTH cloud and local-Ollama configs (AC-006); AC-001/002/003 proven by negative tests; lead MVP 12-step E2E in one integration test; 10 Lead FRD Table 4 cases pass; axe-core + manual a11y; CI green + SBOM + no critical findings; threat model updated for AI gateway + tool egress; traceability matrix complete. Phase 1 Exit Gate has been **passed** (Phase 2 work is committed and pushed to `origin/main`). Remaining release-readiness items are tracked below as an open backlog, not phase blockers. Update `docs/HANDOFF.md`, `docs/SESSION_HANDOFF_P1T14.md`, and `docs/TRACEABILITY.md` for the next session.
 
 ## 9. First concrete step
-Boot the stack (§2), confirm phpunit is green (191 tests, 489 assertions), then begin **P1-T15** (Dashboard + WCAG 2.2 AA) with a failing test first. Report the boot result with real output before doing anything else.
+Boot the stack (§2), confirm phpunit is green (191 tests, 489 assertions), then continue the current Phase 2 backlog. Report the boot result with real output before doing anything else.

@@ -114,11 +114,11 @@ Phase 1 = **Multi-Tenant Core + Lead Follow-Up MVP**, 15 tasks (P1-T1…P1-T15).
 6. ~~Repo location~~ — RESOLVED: `C:\Users\CTYea\dev\aiwebscapes-platform` on `C:`. GitHub not set up.
 7. **First tenant's data classes** — drives LFR-AI-002 redaction config.
 
-**Two items that are OPEN until a GitHub remote exists (plan §7.6) — required before the PHASE 1 exit gate, not Phase 0:**
+**Two items tracked as release-readiness backlog** (GitHub remote now exists; formerly gated on it):
 - (a) GitHub Actions actually running (`.github/workflows/ci.yml` is committed and ready, but needs a remote).
 - (b) **SEC-008 branch protection** on `main`.
 
-> If the user still has no GitHub remote at Phase 1 exit, the plan considers these open items — flag them explicitly rather than silently skipping.
+> The GitHub remote now exists (`origin = https://github.com/todyeag6/ai-workspace.git`); these items are tracked as open backlog, flagged explicitly.
 
 ### Phase 1 task map (from plan, verbatim IDs)
 - **P1-T1** Tenant + identity schema (FR-TEN-001, FR-IDENT-*) — `migrations/001_tenants_identity.sql`; legacy `users.email UNIQUE` → `(tenant_id,email)`. ✅ **DONE** (`cf00ca8`)
@@ -149,7 +149,7 @@ The Aiwebscapes **Approved Baseline v1.0** (`C:\Users\CTYea\awsx_docs\`, authori
 | **OWASP GenAI/LLM Top 10** (prompt injection, excessive agency) | `InjectionFilter` (SEC-010/SFR-AI-002, P1-T7); `ActionAuthority` no autonomous high-impact (FR-AI-006, P1-T7/P1-T9); `LeadService` public-endpoint fail-closed throttle + honeypot + persist-before-AI (LBR-5.1, P1-T10) |
 | **NIST AI RMF 1.0 + GenAI Profile** | `AIGateway` invalid-output → `disposition='review'`, never a side effect (AC-003, P1-T6); `Orchestrator` effect-free replay + compensating actions (P1-T9) |
 | **NIST SSDF 1.1 / CSF 2.0** | `ci-local.sh` 6/6 gates; gitleaks + SBOM; idempotent migrations; PHPStan L8 with `NoUnscopedClientQueryRule` |
-| **WCAG 2.2 AA** | P1-T15 (pending) — dashboard + manual a11y pass |
+| **WCAG 2.2 AA** | P1-T15 (DONE & pushed) — dashboard + manual a11y pass |
 
 > Reconciliation rule (owner): external-facing claims (deck/proposal/marketing) must be reconciled to this baseline, not over-claimed. P1-T1…T10 are implementation-complete and security-reviewed; T11–T15 remain before the Phase-1 exit gate.
 
@@ -236,9 +236,9 @@ pushed (`9eb9fa1` is the latest on the remote as of this note).
 
 ---
 
-## 10. P1-T15 — Dashboard + WCAG 2.2 AA (DONE 2026-08-08, local-only)
+## 10. P1-T15 — Dashboard + WCAG 2.2 AA (DONE 2026-08-08, PUSHED)
 
-**Commit:** `feat(dashboard): FR-DASH-001/002 + LFR-DASH-* + A11Y-001..006` (pending owner push).
+**Commit:** `e540405` — `feat(dashboard): FR-DASH-001/002 + LFR-DASH-* + A11Y-001..006` (**PUSHED**).
 **Files:** `migrations/009_dashboard.sql`, `src/Dashboard/{DashboardRepository,DashboardView,DashboardController}.php`, `public/index.php`, `tests/Dashboard/{PipelineTest,AccessibilityTest}.php`.
 
 ### Gate results (isolated DB `TEST_DB_DSN`)
@@ -279,9 +279,9 @@ The dev `aiwebscapes` DB was migrated (009 applied) so the served dashboard is r
 
 ---
 
-## 11. P2-T1 — Evaluation harness + activation gate (DONE 2026-08-08, local-only, NOT pushed)
+## 11. P2-T1 — Evaluation harness + activation gate (DONE 2026-08-08, PUSHED)
 
-**Commit:** `feat(eval): P2-T1 golden-prompt harness + eval-gated activation (FR-AGENT-003)` (pending owner push).
+**Commit:** `7144d61` — `feat(eval): P2-T1 golden-prompt harness + eval-gated activation (FR-AGENT-003)` (**PUSHED**).
 **Files:** `config/eval/{KPI_THRESHOLDS,GOLDEN_SUITE}.php`, `src/Eval/{EvalResult,EvalHarness,EvalMeasurementSource,GoldenSuiteSource}.php`, `src/Agents/{AgentEvaluationRepository,EvaluationReleaseGate}.php`, `migrations/010_agent_eval.sql`, `tests/Eval/EvalHarnessTest.php`, `tests/Agents/AgentRegistryTest.php` (+ registry wiring).
 
 ### Gate results (isolated DB `TEST_DB_DSN`)
@@ -311,9 +311,9 @@ P2-T2 connectors + model routing · P2-T3 workflow builder UI + reporting · P2-
 
 ---
 
-## 12. P2-T2 — Reusable connectors + cost-aware model routing (DONE 2026-08-08, local-only, NOT pushed)
+## 12. P2-T2 — Reusable connectors + cost-aware model routing (DONE 2026-08-08, PUSHED)
 
-**Commit:** `feat(connectors): P2-T2 connector SDK + cost-aware routing (FR-TOOL-003, FR-AI-001)` (pending owner push).
+**Commit:** `12c2df5` — `feat(connectors): P2-T2 connector SDK + cost-aware routing (FR-TOOL-003, FR-AI-001)` (**PUSHED**).
 **Files:** `src/AI/ModelRouter.php` (cost dimension), `src/Connectors/{ConnectorSpec,ConnectorClient,Http/Crm/EmailConnectorClient,ConnectorRegistry,ConnectorExecutor}.php`, `migrations/011_connector_bindings.sql`, `tests/AI/ModelRouterCostTest.php`, `tests/Connectors/ConnectorExecutorTest.php`.
 
 ### Gate results (isolated DB `TEST_DB_DSN`)
@@ -342,9 +342,9 @@ P2-T3 workflow builder UI + reporting · P2-T4 managed-ops substrate · P2-T5 pa
 
 ---
 
-## 13. P2-T3 — Workflow builder + reporting suite (DONE 2026-08-08, local-only, NOT pushed)
+## 13. P2-T3 — Workflow builder + reporting suite (DONE 2026-08-08, PUSHED)
 
-**Commit:** `feat(reporting): P2-T3 workflow builder + 6-report WCAG-AA suite (FR-ORCH-003, BRD Table 4/6)` (pending owner push).
+**Commit:** `3796dab` — `feat(reporting): P2-T3 workflow builder + 6-report WCAG-AA suite (FR-ORCH-003, BRD Table 4/6)` (**PUSHED**).
 **Files:** `src/Workflow/WorkflowDefinition.php`, `src/Workflow/WorkflowBuilder.php`, `src/Reporting/ReportData.php`, `src/Reporting/ReportAssembler.php`, `tests/Workflow/WorkflowBuilderTest.php`, `tests/Reporting/ReportAssemblerTest.php`.
 
 ### Gate results (isolated DB `TEST_DB_DSN`)
@@ -372,9 +372,9 @@ P2-T4 managed-ops substrate · P2-T5 packaged vertical offering.
 
 ---
 
-## 14. P2-T4 — Managed-operations substrate (DONE 2026-08-08, local-only, NOT pushed)
+## 14. P2-T4 — Managed-operations substrate (DONE 2026-08-08, PUSHED)
 
-**Commit:** `feat(managed-ops): P2-T4 ownership ledger + SLA tracking + support model (BR-9.1/BR-11.1/BR-12.6)` (pending owner push).
+**Commit:** `d5ae649` — `feat(managed-ops): P2-T4 ownership ledger + SLA tracking + support model (BR-9.1/BR-11.1/BR-12.6)` (**PUSHED**).
 **Files:** `migrations/012_managed_ops.sql`, `src/ManagedOps/AgentOwnership.php`, `src/ManagedOps/AgentOwnershipRepository.php`, `src/ManagedOps/SlaRecord.php`, `src/ManagedOps/SlaRepository.php`, `src/ManagedOps/SupportModel.php`, `tests/ManagedOps/`.
 
 ### Gate results (isolated DB `TEST_DB_DSN`)

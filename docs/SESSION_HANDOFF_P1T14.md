@@ -1,7 +1,7 @@
 # Aiwebscapes Platform — Session Handoff (Phase 1, through T14)
 
 **Prepared:** 2026-08-07 (end of T14 execution)
-**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`; **T12 is pushed to `origin`**, **T13 + T14 are local-only, pending owner push**; working tree clean)
+**Repo:** `C:\Users\CTYea\dev\aiwebscapes-platform` (branch `main`; **T1–T15 + Phase 2 (P2-T1…T4, workflow, CI) are pushed to `origin/main`**; working tree clean)
 **Authoritative plan:** `C:\Users\CTYea\.hermes\plans\2026-08-05_100000-aiwebscapes-production-system-plan.md` (1,180 lines — source of truth for requirement IDs)
 **Baseline docs (authoritative, `.docx`):** `C:\Users\CTYea\awsx_docs\` (PDFs are duplicates — never read them; never read `_awsx_extract/*.txt`, they are derived)
 **Read order for a new session:** this file → `docs/HANDOFF.md` → the plan. This file captures live state the plan cannot.
@@ -14,7 +14,7 @@ You are continuing the **Aiwebscapes Platform** build — a local-first, privacy
 
 ## Hard rules (owner directives — non-negotiable)
 - **SECURITY-FIRST, always.** Security is the PRIMARY review axis for every task, not a checklist. Load-bearing guarantees you must preserve and prove: **AC-001** (tenant isolation — no unscoped client query), **AC-002** (allowlists not denylists), **AC-003** (model output that fails schema/policy produces NO external side effect), **FR-AI-006** (AI cannot autonomously authorize high-impact actions), **SEC-005** (deny-by-default), **SEC-010/SFR-AI-002** (prompt-injection defense; untrusted content is DATA, never instructions), and the **SSRF egress guard** (P1-T8). When a plan/code skeleton conflicts with a security guarantee already built, reconcile TOWARD the guarantee and flag the deviation.
-- **NEVER `git push` / `force-push` without explicit per-occasion instruction.** Remote exists (`origin = https://github.com/todyeag6/ai-workspace.git`). As of handoff, **T1–T12 are on `origin/main`**; **T13 (`e3cfc07`) and T14 (`b9eefd1`) are local-only and pending the owner's push**.
+- **NEVER `git push` / `force-push` without explicit per-occasion instruction.** Remote exists (`origin = https://github.com/todyeag6/ai-workspace.git`). As of 2026-08-09, **all of Phase 1 (T1–T15) and Phase 2 (P2-T1…T4, workflow orchestration `1aa7db3`, CI hardening `d528f0e`) are committed and pushed to `origin/main`** (HEAD `d5ae649`).
 - **Subagent summaries are ADVISORY.** Async subagents (delegate_task) routinely die on HTTP 429/524 before committing, or re-report stale state from concurrent siblings. ALWAYS re-verify with real `git` + isolated-DB gate before marking a task done; finish/commit yourself when a subagent leaves work uncommitted.
 - **Verify against the `.docx` baseline, not derived text.** FR-/AC-/SEC-/LFR-/BAAF- IDs live in `C:\Users\CTYea\awsx_docs\` `.docx` (02 Platform FRD is the functional authority; 03 BAAF FRD holds BAAF-001..006; 05 Lead FRD, 07 Defensive AI FRD add task-specific IDs).
 - **Use official docs / live probes, not recalled patterns.** Owner requires best-practice-from-current-docs; probe installed binaries and official sources before asserting toolchain facts.
@@ -26,7 +26,7 @@ You are continuing the **Aiwebscapes Platform** build — a local-first, privacy
   - DSNs: `DB_DSN=mysql:host=db;dbname=aiwebscapes`, `TEST_DB_DSN=mysql:host=db;dbname=aiwebscapes_test`, `REDIS_DSN=tcp://redis:6379`.
   - `AI_LOCAL_BASE_URL=http://host.docker.internal:11434/v1` (Ollama on Windows host, GTX 1660 Ti 6GB — **never `gemma4:12b`** on auto; `gemma4:12b` is ON-DEMAND ONLY).
   - **Ollama model policy (owner-authorized):** SINGLE-RESIDENT `hermes3:8b` is the only always-on model (MAX_LOADED_MODELS=1). `qwen3:4b` = light/bulk fallback. `qwen3.5-9b:8k` = quality alt. `nomic-embed-text` = embeddings. `OLLAMA_CONTEXT_LENGTH=8192` is INTENTIONAL — enforce the ceiling fail-safe (`ContextLimitExceeded`), do not raise it.
-- **MySQL DATA lives in a Docker VOLUME** that survives container restart — stray `aiwebscapes_*_iso`/`*_verify` test DBs are NOT auto-removed by a restart; they persist until explicitly `DROP`ped (each DROP is a consent-gated SQL action). `restart: unless-stopped` only revives the *process*, not the data. **Current state: ~19 stray iso/verify DBs from T13/T14 verification remain in the volume — see Cleanup section.**
+- **MySQL DATA lives in a Docker VOLUME** that survives container restart — stray `aiwebscapes_*_iso`/`*_verify` test DBs are NOT auto-removed by a restart; they persist until explicitly `DROP`ped (each DROP is a consent-gated SQL action). `restart: unless-stopped` only revives the *process*, not the data. **Current state: 0 stray iso/verify DBs remain** (volume clean as of 2026-08-09; `SHOW DATABASES LIKE 'aiwebscapes_%'` returns none) — see Cleanup section.
 - **gitleaks** from HOST (not container): `docker run --rm -v "$(pwd -W)":/repo ghcr.io/gitleaks/gitleaks:latest dir /repo --redact --no-banner --config=/repo/.gitleaks.toml` (exit 1 = leaks). Validate the scanner with a REAL planted key, never the allowlisted AWS doc key.
 - **phpcs major bump to 4.0.4** (CVE-2026-67434, dev-only). Ruleset compatible; re-run `composer audit` in CI.
 
@@ -67,8 +67,8 @@ bash scripts/ci-local.sh         # all 6 gates (run from any CWD)
 | P1-T10 | LFR-CAP-001..004, LBR-5.1 | `5dc7b63` | Public capture: honeypot + fail-closed throttle + tenant-scoped |
 | P1-T11 | LFR-DUP-001, LFR-AI-001/002/003, LFR-ROUTE-001 | `be3855e` | Duplicate linked not overwritten; LFR-AI-002 redaction; deterministic rule overrides AI |
 | P1-T12 | LFR-MSG-001/002, LFR-TASK-001, LFR-DASH-004, LFR-PRIV-001, LFR-SEC-001 | `81e99d4` | **PUSHED.** `src/Leads/MessageService.php`, `LeadService` patched |
-| P1-T13 | FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002 | `e3cfc07` | **LOCAL-ONLY (pending push).** Splitter upgrade (`src/Infra/SqlSplitter.php`) enabled DELIMITER-aware triggers; `migrations/007_audit.sql` enforces append-only via `BEFORE UPDATE/DELETE` `SIGNAL` triggers; `AuditLogger`, `NotificationService`, `Health`, `RetentionService` |
-| P1-T14 | FR-ASMT-001/002, BAAF-001..006 | `b9eefd1` | **LOCAL-ONLY (pending push).** `migrations/008_assessment.sql` (NOTE: plan said `007_assessment.sql` but `007` was already taken by the T13 audit migration — actual file is `008`); `src/Assessment/AssessmentService.php` + `Decision` + `ProhibitedRiskException` + `ProcessDefectException`. Fail-closed BAAF gates (BAAF-003/004/005/006 + §3) |
+| P1-T13 | FR-AUD-001/002, FR-NOTIF-001, FR-OBS-001, FR-DATA-002 | `e3cfc07` | **PUSHED.** Splitter upgrade (`src/Infra/SqlSplitter.php`) enabled DELIMITER-aware triggers; `migrations/007_audit.sql` enforces append-only via `BEFORE UPDATE/DELETE` `SIGNAL` triggers; `AuditLogger`, `NotificationService`, `Health`, `RetentionService` |
+| P1-T14 | FR-ASMT-001/002, BAAF-001..006 | `b9eefd1` | **PUSHED.** `migrations/008_assessment.sql` (NOTE: plan said `007_assessment.sql` but `007` was already taken by the T13 audit migration — actual file is `008`); `src/Assessment/AssessmentService.php` + `Decision` + `ProhibitedRiskException` + `ProcessDefectException`. Fail-closed BAAF gates (BAAF-003/004/005/006 + §3) |
 
 **Gate status:** phpunit `OK (191 tests, 489 assertions)` · phpstan L8 `[OK] No errors` · phpcs 0 (only pre-existing line-length warnings).
 
@@ -83,8 +83,8 @@ bash scripts/ci-local.sh         # all 6 gates (run from any CWD)
 5. **SEC-008 branch protection is BLOCKED by the plan tier** (GitHub Free private repo: both legacy branch-protection and rulesets APIs return `403 "Upgrade to GitHub Pro or make this repository public"`). Decision: stay private + free; owner pushes own. Document SEC-008 as OPEN, not skipped.
 
 ## Cleanup backlog (consent-gated — DO NOT auto-DROP)
-The Docker volume holds these stray verification DBs (created with `CREATE DATABASE IF NOT EXISTS`, never dropped because the DROP was consent-blocked):
-`aiwebscapes_t13_iso`, `aiwebscapes_t13b_iso` … `aiwebscapes_t13h_iso`, `aiwebscapes_t13gate_iso`, `aiwebscapes_t13verify_1786126213`, `aiwebscapes_t13verify2_1786126482`, `aiwebscapes_t14a_iso` … `aiwebscapes_t14d_iso`, `aiwebscapes_t14gate_iso`, `aiwebscapes_t14verify_1786128929`, `aiwebscapes_t14verify3_1786129063`, `aiwebscapes_t14v4_1786129189` (~19 total). None contain production data; they are harmless but accumulate. **Ask the owner before dropping the batch** (single `DROP DATABASE IF EXISTS` per name, or a loop). They are NOT removed by a container restart.
+The Docker volume holds **no stray verification DBs** as of 2026-08-09 (verified clean; `SHOW DATABASES LIKE 'aiwebscapes_%'` returns no `*_iso`/`*_verify`). Historically these were created with `CREATE DATABASE IF NOT EXISTS`:
+`aiwebscapes_t13_iso`, `aiwebscapes_t13b_iso` … `aiwebscapes_t13h_iso`, `aiwebscapes_t13gate_iso`, `aiwebscapes_t13verify_1786126213`, `aiwebscapes_t13verify2_1786126482`, `aiwebscapes_t14a_iso` … `aiwebscapes_t14d_iso`, `aiwebscapes_t14gate_iso`, `aiwebscapes_t14verify_1786128929`, `aiwebscapes_t14verify3_1786129063`, `aiwebscapes_t14v4_1786129189` (0 total as of 2026-08-09; volume clean). None contain production data; they are harmless but accumulate. **0 stray DBs to drop** (verified clean 2026-08-09).
 
 ## Reusable skills (load with skill_view)
 - `php-docker-tested-build` — full Windows-MSYS PHP/Docker TDD runbook.
@@ -105,7 +105,7 @@ The Docker volume holds these stray verification DBs (created with `CREATE DATAB
 10. **DELIMITER-aware splitter required for triggers:** `TestCase::applyMigrations()` and `scripts/migrate.php` both use `App\Infra\SqlSplitter` (DELIMITER-aware) since T13. A naive `explode(';')` splitter would shatter `$$`-bodied trigger definitions. Any new trigger migration MUST keep the `DELIMITER $$ … DELIMITER ;` block and rely on `SqlSplitter`.
 
 ## Phase-1 Exit Gate (plan §995) — what remains
-Suite green in BOTH cloud and local-Ollama configs (AC-006); AC-001/002/003 proven by negative tests; lead MVP 12-step E2E; 10 Lead FRD Table 4 cases pass; axe-core + manual a11y; CI green + SBOM + no critical findings; threat model updated for AI gateway + tool egress; traceability matrix complete. **T15 remains before this gate.** Afterwards: owner pushes T13 + T14, then the exit gate.
+Suite green in BOTH cloud and local-Ollama configs (AC-006); AC-001/002/003 proven by negative tests; lead MVP 12-step E2E; 10 Lead FRD Table 4 cases pass; axe-core + manual a11y; CI green + SBOM + no critical findings; threat model updated for AI gateway + tool egress; traceability matrix complete. **T15 is DONE and pushed.** Phase 1 Exit Gate passed; Phase 2 is committed and pushed.
 
 ---
 
@@ -125,11 +125,11 @@ Reconciliation note (owner): external-facing claims must be reconciled to this b
 | **OWASP GenAI/LLM Top 10** | `InjectionFilter` SEC-010/SFR-AI-002 (T7); `ActionAuthority` no autonomous high-impact FR-AI-006 (T7/T9); `LeadService` fail-closed throttle+honeypot+persist-before-AI LBR-5.1 (T10) |
 | **NIST AI RMF 1.0 + GenAI Profile** | `AIGateway` invalid→`'review'`, never side effect AC-003 (T6); `Orchestrator` effect-free replay + compensation (T9) |
 | **NIST SSDF 1.1 / CSF 2.0** | `ci-local.sh` 6/6; gitleaks + SBOM; idempotent migrations; PHPStan L8 `NoUnscopedClientQueryRule` |
-| **WCAG 2.2 AA** | P1-T15 (pending) — dashboard + manual a11y pass |
+| **WCAG 2.2 AA** | P1-T15 (DONE & pushed) — dashboard + manual a11y pass |
 
 ## Appendix B — Repo state at handoff
 - `main` HEAD (local) = `b9eefd1` (P1-T14). `origin/main` HEAD = `81e99d4` (P1-T12). Ahead by 2 local commits (`e3cfc07` T13, `b9eefd1` T14), behind 0. Tree clean.
-- Docker `db` holds `aiwebscapes` (dev) + `aiwebscapes_test` (shared test) + ~19 stray `*_iso`/`*_verify` verification DBs (see Cleanup backlog).
+- Docker `db` holds `aiwebscapes` (dev) + `aiwebscapes_test` (shared test); stray `*_iso`/`*_verify` verification DBs: **0** (volume clean 2026-08-09; see Cleanup backlog).
 - `vendor/` and `.phpunit.cache/` are expected untracked (gitignored).
 
 *This is a living snapshot. The authoritative plan is the `.hermes/plans/...` file; this doc captures live repo state the plan cannot.*
