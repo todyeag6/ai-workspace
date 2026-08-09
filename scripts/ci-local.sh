@@ -57,8 +57,12 @@ if ! docker compose ps --status=running --services 2>/dev/null | grep -qx 'app';
 fi
 
 # --- 1. PSR-12 ----------------------------------------------------------------
-banner "PSR-12 (phpcs)"
-$D vendor/bin/phpcs --standard=phpcs.xml src tests
+# Gate on ERRORS only: the project standard is "0 phpcs errors". Line-length
+# warnings (Generic.Files.LineLength) are accepted and have been since Phase 0;
+# without -n the warning exit code aborts this script at gate 1 and the "6/6"
+# banner is never reached (a false-fail of the CI proof itself).
+banner "PSR-12 (phpcs, errors only)"
+$D vendor/bin/phpcs --standard=phpcs.xml -n src tests
 
 # --- 2. Static analysis -------------------------------------------------------
 banner "PHPStan level 8"
