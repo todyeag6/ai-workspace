@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Packaged vertical offering: Lead Follow-Up MVP (P2-T5, BR-16 Phase 2).
  *
@@ -20,6 +18,8 @@ declare(strict_types=1);
  *
  * © AI WebScapes 2026
  */
+
+declare(strict_types=1);
 
 return [
     'name' => 'Lead Follow-Up MVP',

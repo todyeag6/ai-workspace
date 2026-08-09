@@ -407,4 +407,41 @@ Grep across `src/`/`migrations/` found NO SLA, ownership or support-model concep
 ### Phase 2 remaining (per plan)
 P2-T5 packaged vertical offering.
 
-*
+---
+
+## 15. P2-T5 — Packaged vertical offering (DONE 2026-08-09, NOT YET PUSHED)
+**Local commit pending** — built per `aiwebscapes-platform-build` skill (TDD, security-first, isolated-DB verify, checkpoint). **Pushing is the owner's call — not pushed.**
+
+**What "one templated repeatable engagement" ships as:** a vertical package that
+composes the ALREADY-BUILT modules (AgentRegistry disabled-by-default
+registration, EvaluationReleaseGate eval-gated activation, append-only
+AgentOwnershipRepository + SlaRepository, WorkflowBuilder launch validation)
+into one named, repeatable offering — **bundling MULTIPLE agents per template**
+(the confirmed scope addition), each with its own BR-11.1 ownership roster,
+BRD Table 4 SLA targets, a SupportModel, and a validated launch workflow.
+
+**Files:**
+- `config/verticals/LEAD_FOLLOWUP.php` — shipped template (bundles Lead Analyst + Lead Router; DATA only, validated at load).
+- `src/VerticalOffering/VerticalTemplate.php` — immutable VO; validates at load against the SINGLE source of truth for each vocabulary (`AgentOwnership::roleNames()`, `SlaRecord::types()`, `SupportModel::tiers()`).
+- `src/VerticalOffering/VerticalLauncher.php` — orchestrates the launch; fails CLOSED (validates launch workflow BEFORE any write), records the blueprint (ownership + SLA), and activates ONLY after the eval verdict passes.
+- `src/VerticalOffering/LaunchedOfferingRepository.php` — tenant-scoped audit-ledger row (activated flag = gate result).
+- `src/VerticalOffering/LaunchedOffering.php` + `VertalTemplateLoadFailure.php` — result VO + load error.
+- `migrations/013_vertical_offerings.sql` — idempotent `launched_offerings`.
+- `tests/VerticalOffering/VerticalOfferingTest.php` — 9 tests, 32 assertions.
+
+**Security invariants proven (not just "green"):**
+- **FAIL-CLOSED ON GATE:** a failing `EvalResult` leaves every bundled agent DISABLED — activation only via `EvaluationReleaseGate::release()` (the decision stays outside the launcher; no second activation path was introduced). The refused blueprint is still recorded (audit trail).
+- **FAIL-CLOSED ON WORKFLOW:** a malformed launch-workflow step throws BEFORE any agent row exists (reuses `WorkflowBuilder`).
+- **AC-001:** every repo is built from the launcher's tenant id; `LaunchedOfferingRepository` extends `TenantRepository`; tenant B sees none of tenant A's agents/ownership/SLA/launch rows (negative test `test_launched_offering_is_tenant_scoped`).
+- **Vocabulary reuse, not re-declaration:** roles/SLA-types/tiers validated against the existing enums, so a new type is a code change, not a silent miss.
+
+**Gate results (isolated `TEST_DB_DSN`):**
+- `phpunit` — **OK (260 tests, 687 assertions)** (prior 251/655 → +9 tests/+32 from P2-T5).
+- `phpstan analyse` — **[OK] No errors** (L8). `phpcs --standard=phpcs.xml src tests` — **0 errors** (`-n`, accepted line-length warnings only).
+- `composer audit` — no advisories. `gitleaks` — no leaks. `ci-local.sh` — **ALL LOCAL CI GATES PASSED (6/6)**.
+
+**Phase 2 exit:** P2-T1…T5 all DONE and committed locally. Remote `origin/main` is one commit behind (the ci-local.sh fix at `4891388` IS pushed; P2-T5 is local-only). Owner to push P2-T5 + add a HANDOFF §15 push note when ready.
+
+**Stray DBs from verification (CREATE-only, not dropped — Docker volume persists):**
+`aiwebscapes_p2t5_1786283880`, `aiwebscapes_p2t5_full_1786284084` (isolated verify runs). Left for owner-approved DROP like prior strays.
+
