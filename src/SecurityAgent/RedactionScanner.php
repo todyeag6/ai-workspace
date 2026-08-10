@@ -120,7 +120,8 @@ final class RedactionScanner
      * carried under an unanticipated key; the key allowlists above are the
      * primary gate. Pattern is narrow and intentional, not a fishing expedition.
      */
-    private const SECRET_VALUE_PATTERN = '/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|\b[a-z0-9]{32,}\.(?:apps|googleusercontent)\.com\b/i';
+    private const SECRET_VALUE_PATTERN
+        = '/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|\b[a-z0-9]{32,}\.(?:apps|googleusercontent)\.com\b/i';
 
     /**
      * A session-token VALUE pattern (JWT-ish). Narrow and
