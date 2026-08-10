@@ -26,11 +26,12 @@
  * requirement, and they live in this one auditable, change-controlled file
  * that a ratifier edits without touching RemediationTracker.
  *
- * STATUS: PROPOSED (owner to ratify). The values are defensible, sourced
- * defaults — not baseline facts. On ratification, flip this line to RATIFIED
- * with the date and KEEP tests/SecurityAgent/RemediationTrackerTest.php::
- * test_shipped_remediation_policy_pins_its_contract_terms — that test pins
- * every value below so an unsourced edit fails CI.
+ * STATUS: RATIFIED 2026-08-10 by the platform owner. The values below are now
+ * approved policy, not proposed defaults. tests/SecurityAgent/
+ * RemediationTrackerTest.php::test_shipped_remediation_policy_pins_its_contract_terms
+ * REMAINS IN FORCE and pins every value below, so changing one without
+ * updating the test — and therefore without a reviewer seeing it — fails CI.
+ * Ratification raises the bar on an edit; it does not remove it.
  *
  * ---------------------------------------------------------------------------
  * WHY A RISK ACCEPTANCE MUST EXPIRE, AND WHY THE CEILING IS ONE YEAR

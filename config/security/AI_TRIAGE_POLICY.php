@@ -22,11 +22,12 @@
  * same file so that loosening one is a visible, reviewable edit and not a
  * quiet constant change buried in a class.
  *
- * STATUS: PROPOSED (owner to ratify). The values are defensible defaults, not
- * baseline facts. On ratification, flip this line to RATIFIED with the date
- * and KEEP tests/SecurityAgent/TriageAssistantTest.php::
- * test_shipped_triage_policy_pins_its_security_decisions — that test pins the
- * three security-critical entries so an unsourced edit fails CI.
+ * STATUS: RATIFIED 2026-08-10 by the platform owner. The values below are now
+ * approved policy, not proposed defaults. tests/SecurityAgent/
+ * TriageAssistantTest.php::test_shipped_triage_policy_pins_its_security_decisions
+ * REMAINS IN FORCE and pins the three security-critical entries, so changing
+ * one without updating the test — and therefore without a reviewer seeing it —
+ * fails CI. Ratification raises the bar on an edit; it does not remove it.
  *
  * ---------------------------------------------------------------------------
  * WHY data_classification IS 'restricted' AND WHY THAT IS THE LOAD-BEARING LINE
