@@ -11,11 +11,19 @@
  * IMPORTANT (do not "fix" by hardcoding these into the engine): the approved
  * baseline specifies NO numeric deadlines anywhere. It says the deadlines are
  * *configured* — which makes the numbers a service-plan parameter, not a
- * requirement. Inventing hours/days inside FindingEngine would put unratified
- * numbers into a production gate and make them invisible to the person whose
- * contract they encode. They therefore live here: one auditable,
- * change-controlled file a ratifier edits without touching the engine, exactly
- * as config/eval/KPI_THRESHOLDS.php does for the BRD Table 4 measures.
+ * requirement. Hardcoding hours/days inside FindingEngine would put opaque,
+ * unchangeable numbers into a production gate. They therefore live here: one
+ * auditable, change-controlled file a ratifier edits without touching the
+ * engine, exactly as config/eval/KPI_THRESHOLDS.php does for the BRD Table 4
+ * measures.
+ *
+ * RATIFIED: 2026-08-10. Owner approved the values below, grounded in CISA BOD
+ * 26-04 (2026-06-10) tier boundaries as the current federal standard, via the
+ * chat instruction "ratify sla". They are no longer PROPOSED. If a future
+ * change is needed, edit this file AND
+ * tests/SecurityAgent/FindingEngineTest.php::
+ * test_shipped_sla_policy_matches_the_standard_it_cites together — the test
+ * pins the dates so unsourced edits fail CI.
  *
  * ---------------------------------------------------------------------------
  * EXTERNAL GROUNDING (reviewed 2026-08-10)
@@ -86,10 +94,10 @@ return [
     'medium' => 336,
 
     // 60 days = 1440h. The BOD 26-04 lower-risk tier and its documented
-    // default when CVE metadata is unavailable. NOTE: this REPLACES an earlier
-    // proposed 90 days (2160h), which came from the FedRAMP low-severity
-    // convention rather than the current directive; 60 days is both the more
-    // defensible citation and the tighter commitment.
+    // default when CVE metadata is unavailable. Replaces an earlier proposed
+    // 90 days (2160h) that came from the FedRAMP low-severity convention
+    // rather than the current directive; 60 days is both the more defensible
+    // citation and the tighter commitment.
     'low' => 1440,
 
     // No remediation clock: an informational item is posture, not a defect.
