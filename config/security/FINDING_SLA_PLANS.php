@@ -11,10 +11,14 @@
  *
  * RATIONALE (owner, 2026-08-10): "should become per-plan rather than global."
  * Tiers are plans; a higher tier commits to tighter remediation clocks. These
- * deltas are PROPOSED alongside the ratified default and use the same BOD 26-04
- * tier language (3-day forensic-triage ceiling for the tightest critical, the
- * 14-day KEV tier for medium, etc.). Ratify by editing here together with
- * tests/SecurityAgent/FindingEngineTest.php::test_sla_overridden_per_plan.
+ * deltas are RATIFIED (owner, 2026-08-10, same "ratify" instruction that
+ * approved the default plan) and use the same BOD 26-04 tier language
+ * (3-day forensic-triage ceiling for the tightest critical, the 14-day KEV
+ * tier for medium, etc.). If a future change is needed, edit here together
+ * with tests/SecurityAgent/FindingEngineTest.php::test_sla_overridden_per_plan
+ * — the test pins the dates so unsourced edits fail CI.
+ *
+ * RATIFIED: 2026-08-10.
  *
  * @return array<string, array<string, int|null>>
  */
