@@ -29,7 +29,7 @@ use InvalidArgumentException;
  * guarantees in one auditable place. Each kind's heading text is explicit so
  * the rendered report names itself.
  *
- * THE SIX KINDS map to the baseline:
+ * THE SIX PLATFORM KINDS map to the baseline:
  *   assessment  - AI Opportunity & Readiness Assessment (BR-6.1, OBJ-08)
  *   operational - BRD Table 4 "Operational" KPIs + Table 2 operational control
  *   executive   - business-owner summary (BR-11.1 ownership, §10 improve)
@@ -37,11 +37,42 @@ use InvalidArgumentException;
  *   sla         - managed-services SLA-based support (BR-10.1, Table 2)
  *   acceptance  - defined acceptance criteria / test evidence (BR-12.4, EV-*)
  *
+ * THE SIX SECURITY-AGENT KINDS (P3-T8) map to 07 Defensive AI Security Agent
+ * FRD §2, Reporting: "Executive, technical, compliance mapping, trend,
+ * acceptance and retest reports." They are built by
+ * App\SecurityAgent\SecurityReportBuilder and rendered here.
+ *
+ * WHY THEY ARE NAMESPACED `security_*` RATHER THAN REUSING THE KINDS ABOVE.
+ * Two words collide across the two baselines and mean DIFFERENT things:
+ *   - `executive` above is a business-owner summary (BR-11.1); the FRD's is an
+ *     executive RISK report over security findings (06 BRD §6).
+ *   - `acceptance` above is BR-12.4 acceptance-criteria / test evidence; the
+ *     FRD's is the SBR-5.3 exception and RISK-ACCEPTANCE register.
+ * Folding either pair together would silently merge two unrelated reports —
+ * a client reading "Acceptance Report" would have no way to tell whether they
+ * were looking at release evidence or at waived security risk. Distinct kinds
+ * keep both readable, and leave the shipped P2-T3 suite untouched.
+ *
  * © AI WebScapes 2026
  */
 final class ReportAssembler
 {
-    private const KINDS = ['assessment', 'operational', 'executive', 'security', 'sla', 'acceptance'];
+    private const KINDS = [
+        // P2-T3 platform suite.
+        'assessment',
+        'operational',
+        'executive',
+        'security',
+        'sla',
+        'acceptance',
+        // P3-T8 defensive security agent suite (07 FRD §2).
+        'security_executive',
+        'security_technical',
+        'security_compliance',
+        'security_trend',
+        'security_acceptance',
+        'security_retest',
+    ];
 
     private const KIND_HEADING = [
         'assessment' => 'AI Opportunity & Readiness Assessment',
@@ -50,6 +81,12 @@ final class ReportAssembler
         'security' => 'Security Report',
         'sla' => 'Service Level Agreement Report',
         'acceptance' => 'Acceptance Report',
+        'security_executive' => 'Executive Risk Report',
+        'security_technical' => 'Technical Findings Report',
+        'security_compliance' => 'Compliance Mapping Report',
+        'security_trend' => 'Trend and Posture Report',
+        'security_acceptance' => 'Exception and Risk Acceptance Register',
+        'security_retest' => 'Retest Report',
     ];
 
     public function render(ReportData $data): string
