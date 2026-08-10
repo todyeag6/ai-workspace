@@ -153,41 +153,50 @@ final class FindingEngine
 
     /**
      * Hours from first sighting to the remediation deadline, per severity.
+     * The DEFAULT plan (config/security/FINDING_SLA.php, ratified).
      *
      * @var array<string, int|null>
      */
     private array $slaHours;
 
     /**
-     * @param array<string, int|null>|null $slaHours Severity => hours until due,
-     *        or null for "no deadline". Defaults to the ratifiable policy in
-     *        config/security/FINDING_SLA.php (SBR-5.1).
+     * Per-plan (support-tier) overrides, keyed by tier. A tier only lists the
+     * severities it changes; anything absent falls back to $slaHours.
+     *
+     * @var array<string, array<string, int|null>>
      */
-    public function __construct(?array $slaHours = null)
+    private array $slaOverrides;
+
+    /**
+     * @param array<string, int|null>|null $slaHours Severity => hours until due,
+     *        or null for "no deadline". Defaults to the ratified policy in
+     *        config/security/FINDING_SLA.php (SBR-5.1).
+     * @param array<string, array<string, int|null>> $slaOverrides Per-tier deltas
+     *        from config/security/FINDING_SLA_PLANS.php.
+     */
+    public function __construct(?array $slaHours = null, array $slaOverrides = [])
     {
         $policy = $slaHours ?? self::defaultSlaPolicy();
-
-        foreach (Finding::SEVERITIES as $severity) {
-            if (!array_key_exists($severity, $policy)) {
-                // Fail closed: a policy that does not cover every severity
-                // would silently leave some findings with no deadline, and
-                // "no deadline" must be a stated decision, not an omission.
-                throw new InvalidArgumentException(sprintf(
-                    'The SLA policy does not cover severity "%s" (SBR-5.1, SFR-FIND-001).',
-                    $severity
-                ));
-            }
-
-            $hours = $policy[$severity];
-            if ($hours !== null && $hours <= 0) {
-                throw new InvalidArgumentException(sprintf(
-                    'The SLA for severity "%s" must be a positive number of hours, or null for none.',
-                    $severity
-                ));
-            }
-        }
+        self::assertCompletePolicy($policy);
 
         $this->slaHours = $policy;
+        // When no explicit override map was supplied, load the per-plan deltas
+        // from config so the production path honours them without the caller
+        // having to know the file exists.
+        $this->slaOverrides = $slaOverrides === [] ? self::planOverrides() : $slaOverrides;
+    }
+
+    /**
+     * Resolves the hours for a severity under a given plan (tier), falling
+     * back to the default plan for any severity the tier does not override.
+     */
+    private function hoursFor(string $severity, ?string $plan): ?int
+    {
+        if ($plan !== null && isset($this->slaOverrides[$plan][$severity])) {
+            return $this->slaOverrides[$plan][$severity];
+        }
+
+        return $this->slaHours[$severity] ?? null;
     }
 
     /**
@@ -281,15 +290,19 @@ final class FindingEngine
      * The remediation deadline for a finding of this severity, first seen at
      * this moment (SFR-FIND-001 "SLA", SBR-5.1).
      *
+     * $plan is the support tier (a "plan", owner 2026-08-10): a tier may
+     * override the default hours for this severity. Null / unknown tier falls
+     * back to the ratified default.
+     *
      * Null means the severity carries no deadline (informational). Measured
      * from FIRST sighting, not from the latest one: a finding that has been
      * open for a month is not given a fresh clock because it was seen again.
      */
-    public function slaDueAt(string $severity, DateTimeImmutable $firstSeenAt): ?DateTimeImmutable
+    public function slaDueAt(string $severity, DateTimeImmutable $firstSeenAt, ?string $plan = null): ?DateTimeImmutable
     {
         $this->assertSeverity($severity);
 
-        $hours = $this->slaHours[$severity] ?? null;
+        $hours = $this->hoursFor($severity, $plan);
         if ($hours === null) {
             return null;
         }
@@ -346,7 +359,8 @@ final class FindingEngine
         array $signature,
         string $baseSeverity,
         string $confidence,
-        DateTimeImmutable $observedAt
+        DateTimeImmutable $observedAt,
+        ?string $plan = null
     ): array {
         if (trim($title) === '') {
             throw new InvalidArgumentException('A finding must carry a title (SFR-FIND-001).');
@@ -361,7 +375,7 @@ final class FindingEngine
             'severity' => $suggested,
             'confidence' => $confidence,
             'standards_mapping' => $this->mapStandards($category),
-            'sla_due_at' => $this->slaDueAt($suggested, $observedAt),
+            'sla_due_at' => $this->slaDueAt($suggested, $observedAt, $plan),
             'ai_suggested_severity' => $suggested,
             'requires_alert' => $this->requiresAlert($suggested),
         ];
@@ -411,6 +425,75 @@ final class FindingEngine
         }
 
         return $policy;
+    }
+
+    /**
+     * The per-plan (support-tier) overrides from config/security/FINDING_SLA_PLANS.php.
+     * A tier lists only the severities it changes; the rest fall back to the
+     * default plan. Returns an empty array when the file is absent (so a build
+     * without per-plan config keeps working on the default plan only).
+     *
+     * @return array<string, array<string, int|null>>
+     */
+    private static function planOverrides(): array
+    {
+        $path = dirname(__DIR__, 2) . '/config/security/FINDING_SLA_PLANS.php';
+        if (!is_file($path)) {
+            return [];
+        }
+
+        /** @var mixed $loaded */
+        $loaded = require $path;
+        if (!is_array($loaded)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($loaded as $tier => $deltas) {
+            if (!is_string($tier) || !is_array($deltas)) {
+                continue;
+            }
+
+            $tierMap = [];
+            foreach ($deltas as $severity => $hours) {
+                if (!is_string($severity)) {
+                    continue;
+                }
+
+                $tierMap[$severity] = $hours === null ? null : (int) $hours;
+            }
+
+            $out[$tier] = $tierMap;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Fail closed: a default policy that omits a severity would silently leave
+     * some findings with no deadline, and "no deadline" must be a stated
+     * decision, not an omission.
+     *
+     * @param array<string, int|null> $policy
+     */
+    private static function assertCompletePolicy(array $policy): void
+    {
+        foreach (Finding::SEVERITIES as $severity) {
+            if (!array_key_exists($severity, $policy)) {
+                throw new InvalidArgumentException(sprintf(
+                    'The SLA policy does not cover severity "%s" (SBR-5.1, SFR-FIND-001).',
+                    $severity
+                ));
+            }
+
+            $hours = $policy[$severity];
+            if ($hours !== null && $hours <= 0) {
+                throw new InvalidArgumentException(sprintf(
+                    'The SLA for severity "%s" must be a positive number of hours, or null for none.',
+                    $severity
+                ));
+            }
+        }
     }
 
     private function assertCategory(string $category): void

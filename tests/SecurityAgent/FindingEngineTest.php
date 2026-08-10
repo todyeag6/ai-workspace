@@ -226,15 +226,11 @@ final class FindingEngineTest extends TestCase
     }
 
     /**
-     * The shipped deadlines must stay on the tier boundaries of the standard
-     * they cite (CISA BOD 26-04, Appendix A Table 1: 3 days / 14 days /
-     * 60 days, plus a deferral tier). This pins the NUMBERS, not just their
+     * The shipped DEFAULT deadlines must stay on the tier boundaries of the
+     * standard they cite (CISA BOD 26-04, Appendix A Table 1: 3 days / 14 days
+     * / 60 days, plus a deferral tier). This pins the NUMBERS, not just their
      * presence, so a later edit back to unsourced round figures fails here
      * rather than silently shipping an unratified contract term.
-     *
-     * If the service plan legitimately changes these, update
-     * config/security/FINDING_SLA.php AND this test together - that pairing is
-     * the point.
      */
     public function test_shipped_sla_policy_matches_the_standard_it_cites(): void
     {
@@ -276,6 +272,88 @@ final class FindingEngineTest extends TestCase
         self::assertNull(
             $engine->slaDueAt(Finding::SEVERITY_INFORMATIONAL, $first),
             'informational carries no remediation clock.'
+        );
+    }
+
+    /**
+     * The shipped deadlines apply per plan (support tier). A higher tier
+     * tightens the clock; severities a tier does not list fall back to the
+     * default plan. Pinned against config/security/FINDING_SLA_PLANS.php so an
+     * unsourced edit to the plan deltas fails CI.
+     */
+    public function test_sla_overridden_per_plan(): void
+    {
+        $engine = new FindingEngine();
+        $first = $this->at('2026-03-01 09:00:00');
+
+        // mission_critical overrides everything; tighter than the default.
+        self::assertSame(
+            '2026-03-01 13:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_CRITICAL, $first, 'mission_critical')),
+            'mission_critical critical = 4h.'
+        );
+        self::assertSame(
+            '2026-03-02 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_HIGH, $first, 'mission_critical')),
+            'mission_critical high = 24h.'
+        );
+
+        // basic loosens; low is 90 days (2160h) there, vs 60 days default.
+        self::assertSame(
+            '2026-05-30 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_LOW, $first, 'basic')),
+            'basic low = 2160h / 90 days (looser than the 60-day default).'
+        );
+
+        // standard is absent from the plan file -> uses the DEFAULT plan.
+        self::assertSame(
+            '2026-04-30 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_LOW, $first, 'standard')),
+            'standard tier (absent from plan file) falls back to the default 60 days.'
+        );
+
+        // An unknown tier also falls back to the default rather than throwing.
+        self::assertSame(
+            '2026-04-30 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_LOW, $first, 'no-such-tier')),
+            'unknown tier falls back to the default plan.'
+        );
+    }
+
+    /**
+     * A per-plan override that omits a severity must still leave that severity
+     * carrying its DEFAULT deadline - the override only changes what it lists,
+     * never silently drops coverage. Checked via a constructed engine with a
+     * partial override map.
+     */
+    public function test_partial_plan_override_keeps_default_coverage(): void
+    {
+        $engine = new FindingEngine(
+            [
+                Finding::SEVERITY_CRITICAL => 24,
+                Finding::SEVERITY_HIGH => 72,
+                Finding::SEVERITY_MEDIUM => 336,
+                Finding::SEVERITY_LOW => 1440,
+                Finding::SEVERITY_INFORMATIONAL => null,
+            ],
+            [
+                'premium' => [Finding::SEVERITY_CRITICAL => 12],
+            ]
+        );
+
+        $first = $this->at('2026-03-01 09:00:00');
+
+        // Overridden severity uses the plan delta.
+        self::assertSame(
+            '2026-03-01 21:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_CRITICAL, $first, 'premium')),
+            'premium critical = 12h.'
+        );
+        // Non-overridden severity falls back to the default policy, not null.
+        self::assertSame(
+            '2026-03-15 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_MEDIUM, $first, 'premium')),
+            'premium medium falls back to the 14-day default.'
         );
     }
 

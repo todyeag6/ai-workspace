@@ -159,7 +159,8 @@ final class FindingRepository extends TenantRepository
         ?int $evidenceId = null,
         ?string $evidenceHash = null,
         ?DateTimeImmutable $observedAt = null,
-        ?string $note = null
+        ?string $note = null,
+        ?string $plan = null
     ): int {
         $moment = $observedAt ?? $this->clock();
 
@@ -170,7 +171,8 @@ final class FindingRepository extends TenantRepository
             $signature,
             $baseSeverity,
             $confidence,
-            $moment
+            $moment,
+            $plan
         );
 
         $existing = $this->findByFingerprint($decision['fingerprint']);
