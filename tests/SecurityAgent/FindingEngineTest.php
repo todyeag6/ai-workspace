@@ -225,6 +225,60 @@ final class FindingEngineTest extends TestCase
         }
     }
 
+    /**
+     * The shipped deadlines must stay on the tier boundaries of the standard
+     * they cite (CISA BOD 26-04, Appendix A Table 1: 3 days / 14 days /
+     * 60 days, plus a deferral tier). This pins the NUMBERS, not just their
+     * presence, so a later edit back to unsourced round figures fails here
+     * rather than silently shipping an unratified contract term.
+     *
+     * If the service plan legitimately changes these, update
+     * config/security/FINDING_SLA.php AND this test together - that pairing is
+     * the point.
+     */
+    public function test_shipped_sla_policy_matches_the_standard_it_cites(): void
+    {
+        $engine = new FindingEngine();
+        $first = $this->at('2026-03-01 09:00:00');
+
+        // Tighter than the federal ceiling, which BOD 26-04 explicitly permits
+        // ("Agencies with a lower tolerance for this risk may set shorter
+        // timelines"). A live critical must not sit for three days.
+        self::assertSame(
+            '2026-03-02 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_CRITICAL, $first)),
+            'critical = 24h.'
+        );
+
+        // 72h = the BOD 26-04 three-day tier exactly.
+        self::assertSame(
+            '2026-03-04 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_HIGH, $first)),
+            'high = 72h (BOD 26-04 three-day tier).'
+        );
+
+        // 14 days = the "most KEV-listed vulnerabilities" tier.
+        self::assertSame(
+            '2026-03-15 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_MEDIUM, $first)),
+            'medium = 336h / 14 days (BOD 26-04 KEV tier).'
+        );
+
+        // 60 days = the lower-risk tier, and CISA's documented default when
+        // CVE metadata is unavailable. NOT the older 90-day FedRAMP figure.
+        self::assertSame(
+            '2026-04-30 09:00:00',
+            $this->stamp($engine->slaDueAt(Finding::SEVERITY_LOW, $first)),
+            'low = 1440h / 60 days (BOD 26-04 lower-risk tier), not 90 days.'
+        );
+
+        // The analogue of "fix on system upgrade": posture, not a defect.
+        self::assertNull(
+            $engine->slaDueAt(Finding::SEVERITY_INFORMATIONAL, $first),
+            'informational carries no remediation clock.'
+        );
+    }
+
     // ---------------------------------------------------------------
     // SFR-FIND-002 / FRD section 7 "Deduplication"
     // ---------------------------------------------------------------
