@@ -52,6 +52,9 @@ final class ScanRepository extends TenantRepository
     /** SFR-SAFE-001 rate limits are per minute, so the fixed window is 60s. */
     public const RATE_WINDOW_SECONDS = 60;
 
+    /** Event recorded when a completed scan freezes its (versioned, immutable) profile (SFR-SCAN-001). */
+    public const EVENT_PROFILE_FROZEN = 'profile_frozen';
+
     /** Bounded so a pathological contention loop terminates rather than spins. */
     private const CAS_ATTEMPTS = 5;
 
@@ -59,13 +62,31 @@ final class ScanRepository extends TenantRepository
 
     private ScanEventRepository $events;
 
-    public function __construct(PDO $pdo, ?int $tenantId)
+    private ScanProfileRepository $profiles;
+
+    /**
+     * @param ScanProfileRepository|null $profiles Only completeAndFreeze() needs it. Built
+     *                                             internally when omitted, so every existing
+     *                                             caller keeps working unchanged.
+     */
+    public function __construct(PDO $pdo, ?int $tenantId, ?ScanProfileRepository $profiles = null)
     {
         parent::__construct($pdo, $tenantId);
 
         // Built here rather than injected so a caller cannot hand in an event
         // repository scoped to a different tenant.
         $this->events = new ScanEventRepository($pdo, $tenantId);
+
+        if ($profiles !== null && $profiles->tenantId() !== $this->tenantId()) {
+            // Same reason as above, checked rather than assumed: freezing
+            // another tenant's profile is exactly the cross-tenant write
+            // AC-001 forbids.
+            throw new RuntimeException(
+                'The injected ScanProfileRepository is scoped to a different tenant.'
+            );
+        }
+
+        $this->profiles = $profiles ?? new ScanProfileRepository($pdo, $tenantId);
     }
 
     protected function table(): string
@@ -265,6 +286,60 @@ final class ScanRepository extends TenantRepository
             "id = :id AND status = 'running'",
             ['id' => $id]
         ) > 0;
+    }
+
+    /**
+     * Completes the run AND freezes the envelope it ran under (SFR-SCAN-001).
+     *
+     * WHY THE TWO ARE ONE CALL. SFR-SCAN-001 requires a profile to be immutable
+     * once it has been used for a COMPLETED scan. If completion and freezing
+     * were separate calls, the window between them would be exactly the window
+     * in which a finished report's limits could still be edited - and nothing
+     * in the code would show that the freeze had been skipped. Binding them
+     * here makes "completed" and "frozen" the same event.
+     *
+     * ORDER IS THE DESIGN: the scan must be visible in this tenant, must
+     * actually have run under $profileId, and must genuinely transition to
+     * completed. Only then is the profile frozen, so a refused completion
+     * cannot freeze an envelope that is still in use. The freeze is then
+     * recorded, because an immutability that nobody can evidence is not one.
+     *
+     * @param  int $profileId The profile the caller believes the scan ran under.
+     * @return bool False when the scan was not in a completable state - a
+     *              second completion is refused rather than re-freezing.
+     * @throws RuntimeException When the scan is not visible in this tenant, or
+     *                          when it did not run under $profileId.
+     */
+    public function completeAndFreeze(int $scanId, int $profileId, ?DateTimeImmutable $now = null): bool
+    {
+        // Throws when the scan belongs to another tenant or does not exist.
+        $scan = $this->requireById($scanId);
+
+        if ($scan->profileId() !== $profileId) {
+            // Freezing a profile this scan never used would make an unrelated
+            // envelope permanently uneditable on the strength of someone
+            // else's completion.
+            throw new RuntimeException(sprintf(
+                'Scan %d ran under profile %d, not profile %d; refusing to freeze it (SFR-SCAN-001).',
+                $scanId,
+                $scan->profileId(),
+                $profileId
+            ));
+        }
+
+        if (!$this->complete($scanId, $now)) {
+            return false;
+        }
+
+        $this->profiles->markImmutable($profileId);
+
+        $this->recordEvent(
+            $scanId,
+            self::EVENT_PROFILE_FROZEN,
+            sprintf('scan profile %d frozen on completion of scan %d (SFR-SCAN-001)', $profileId, $scanId)
+        );
+
+        return true;
     }
 
     public function fail(int $id, ?DateTimeImmutable $now = null): bool
