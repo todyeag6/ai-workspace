@@ -38,6 +38,35 @@ client base**, so most incidents have a client-impact dimension addressed in §7
   secret scanning, dependency scanning, and repeatable builds."* → §9 (patching/change).
 - **AC-004** (FRD line 105): *"A release candidate can be restored or rolled back using
   tested procedures."* → §5 step 6 (restore/rollback).
+- **SFR-SELF-006** (FRD §6): *"The service shall maintain incident procedures for
+  accidental out-of-scope traffic, service degradation, credential exposure, and
+  evidence leakage."* → **§12 (this runbook's SFR-SELF-006 coverage map)**.
+
+---
+
+## 12. SFR-SELF-006 coverage map
+
+This section makes the SFR-SELF-006 obligation explicit and traceable. The four
+required scenarios are all handled by the procedures above; the mapping is
+anchored to **NIST SP 800-61r2, *Computer Security Incident Handling Guide***
+(four-phase model: Preparation; Detection & Analysis; Containment, Eradication &
+Recovery; Post-Incident) and the **OWASP *Top 10 for LLM Applications* (2025)**
+taxonomy, which names the AI-specific failure classes this platform's scanner
+surface can surface.
+
+| SFR-SELF-006 scenario | NIST 800-61r2 phase | OWASP LLM 2025 class | Where handled here |
+|---|---|---|---|
+| **Accidental out-of-scope traffic** (scanner aimed at prod/internal/tenant scope) | Detection & Analysis | LLM01 Prompt Injection (indirect, via untrusted scan target); LLM06/LLM09 data-leak adjacency | Refused *before launch* by `ScannerInfrastructureGuard` (SFR-SELF-001) + `TargetSanitizer` (SFR-SELF-005); the refusal is emitted as an audited `IncidentSignal` event (§4 detection source, §6 evidence). |
+| **Service degradation** (scanner or platform impaired) | Containment / Recovery | — | §3 SEV ladder (SEV3/SEV4 degradation tiers) + §5 containment + §5 recovery drill. |
+| **Credential exposure** (scanner scope or env leaks a secret) | Detection & Analysis / Eradication | LLM06 Sensitive Information Disclosure | §5.4 rotate + §6 chain-of-custody; `AuditLogger` redacts credential-shaped values (SFR-AUTH-003). |
+| **Evidence leakage** (incident artifacts exfiltrated or tampered) | Post-Incident / Preservation | LLM09 Data Leakage | §6 chain-of-custody (sha256 manifest, bounded `object_id` audit rows), §8 PIR. |
+
+**Why an audited signal and not just a thrown exception:** SFR-SELF-006's
+procedures are only actionable if the event is *recorded*. `IncidentSignal`
+(`src/SecurityAgent/IncidentSignal.php`) writes an immutable `audit_events` row
+on every scanner refusal (NIST *AI RMF 1.0* §Measure/§Manage: incident handling
+must be measurable), with a bounded `object_id` reason code so the hostile
+target is never persisted in clear text.
 
 ---
 
