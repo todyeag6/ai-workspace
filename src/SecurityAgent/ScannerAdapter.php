@@ -145,6 +145,12 @@ final class ScannerAdapter
 
         try {
             $raw = ($this->executor)($subject);
+        } catch (TargetRefused $e) {
+            // A downstream guard (SFR-SELF-005 / scope) refused the target
+            // before a run could even begin. That is a refusal, not a failure
+            // of the tool, and must not be reported as a finding about the
+            // target. Surface it as STATUS_REFUSED with the guard's reason.
+            return ScannerResult::refused($this->name, $subject, $e->getMessage());
         } catch (Throwable $e) {
             // The tool broke. That is a fact about the TOOL, recorded with its
             // evidence - not a fact about the target (SFR-SCAN-003).
