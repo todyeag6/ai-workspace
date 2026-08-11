@@ -93,4 +93,46 @@ final class TargetRefused extends RuntimeException
             $tool
         ));
     }
+
+    public static function isolationNotRequired(): self
+    {
+        return new self(sprintf(
+            'Refusing scan: scanner isolation is not required by policy. SFR-SELF-001 '
+            . '[Must] mandates isolation from production business systems and client '
+            . 'tenants, so the mandated default is isolation - a policy that disables it '
+            . 'is refused rather than honoured.'
+        ));
+    }
+
+    public static function scannerOnWrongNetwork(string $actual, string $expected): self
+    {
+        return new self(sprintf(
+            'Refusing scan: scanner is attached to network "%s", but SFR-SELF-001 requires '
+            . 'the isolated segment "%s". A scanner on the application network can reach '
+            . 'production business systems (SC-3 / SC-7 boundary violation).',
+            $actual,
+            $expected
+        ));
+    }
+
+    public static function scannerReachesForbiddenDsn(string $dsn): self
+    {
+        return new self(sprintf(
+            'Refusing scan: scanner execution scope can reach DSN "%s". SFR-SELF-001 forbids '
+            . 'the scanner infrastructure from reaching production business systems; this is '
+            . 'a network-pivot / scope-leak refusal (SC-7 boundary protection).',
+            $dsn
+        ));
+    }
+
+    public static function scannerScopeLeaksSecret(string $envKey): self
+    {
+        return new self(sprintf(
+            'Refusing scan: scanner child environment carries "%s", a production credential or '
+            . 'connection key. SFR-SELF-001 isolates the scanner from production business '
+            . 'systems and client secrets; the credential is not handed to the scanner (SC-3 '
+            . 'security-function isolation).',
+            $envKey
+        ));
+    }
 }
