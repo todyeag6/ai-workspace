@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\SecurityAgent;
 
 use App\Data\TenantRepository;
+use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 use PDO;
 use RuntimeException;
 
@@ -113,16 +115,45 @@ final class ScanRepository extends TenantRepository
             'started_at',
             'stopped_at',
             'scheduled_at',
+            'recurrence',
+            'valid_until',
+            'next_run_at',
+            'recurrence_policy_version',
         ];
     }
 
     /**
-     * Records a scheduled run. profile_version is copied onto the run so the
-     * envelope it was granted stays legible after the profile moves on.
+     * The three recurrence cadences the scheduler accepts (the 'none' one-shot
+     * path is not a cadence). Kept here so the allowlist is enforced in one
+     * place (AC-002): an unknown cadence is refused rather than silently stored.
+     */
+    public const RECURRENCE_NONE = 'none';
+    public const RECURRENCE_DAILY = 'daily';
+    public const RECURRENCE_WEEKLY = 'weekly';
+    public const RECURRENCE_MONTHLY = 'monthly';
+
+    /**
+     * The DateInterval each cadence advances the next_run_at by. Pure mapping;
+     * no clock, no I/O. Used by rollForward().
+     *
+     * @var array<string, string>
+     */
+    private const RECURRENCE_INTERVAL = [
+        self::RECURRENCE_DAILY => 'P1D',
+        self::RECURRENCE_WEEKLY => 'P7D',
+        self::RECURRENCE_MONTHLY => 'P1M',
+    ];
+
+    /**
+     * Records a scheduled run and returns its id.
+     *
+     * The run is created in 'scheduled', never 'running': starting it is a
+     * separate act, so a scan cannot begin issuing requests as a side effect
+     * of being planned.
      */
     public function schedule(int $authorizationId, int $profileId, int $profileVersion): int
     {
-        return (int) $this->insertScoped([
+        $scanId = $this->insertScoped([
             'authorization_id' => $authorizationId,
             'scan_profile_id' => $profileId,
             'profile_version' => $profileVersion,
@@ -130,7 +161,56 @@ final class ScanRepository extends TenantRepository
             'kill_requested' => 0,
             'observed_requests' => 0,
             'active_concurrency' => 0,
+            'recurrence' => self::RECURRENCE_NONE,
         ]);
+
+        return (int) $scanId;
+    }
+
+    /**
+     * Records a RECURRING run.
+     *
+     * Distinct from schedule() so the one-shot and recurring paths cannot be
+     * confused: a recurring run must carry a cadence, a validity window
+     * (SFR-AUTH-001), and an initial next_run_at. nextRunAt is computed by the
+     * caller (ScanScheduler) from the cadence + horizon policy, so this method
+     * stays a pure writer.
+     *
+     * @throws InvalidArgumentException When $cadence is unknown (AC-002).
+     * @throws RuntimeException When no such scan exists in this tenant.
+     */
+    public function scheduleRecurring(
+        int $authorizationId,
+        int $profileId,
+        int $profileVersion,
+        string $cadence,
+        DateTimeImmutable $validUntil,
+        DateTimeImmutable $nextRunAt,
+        ?string $policyVersion,
+    ): int {
+        if (!isset(self::RECURRENCE_INTERVAL[$cadence])) {
+            throw new InvalidArgumentException(sprintf(
+                'Unknown recurrence cadence "%s"; allowed: %s.',
+                $cadence,
+                implode(', ', array_keys(self::RECURRENCE_INTERVAL))
+            ));
+        }
+
+        $scanId = $this->insertScoped([
+            'authorization_id' => $authorizationId,
+            'scan_profile_id' => $profileId,
+            'profile_version' => $profileVersion,
+            'status' => SecurityScan::STATUS_SCHEDULED,
+            'kill_requested' => 0,
+            'observed_requests' => 0,
+            'active_concurrency' => 0,
+            'recurrence' => $cadence,
+            'valid_until' => $validUntil->format(self::TIMESTAMP_FORMAT),
+            'next_run_at' => $nextRunAt->format(self::TIMESTAMP_FORMAT),
+            'recurrence_policy_version' => $policyVersion,
+        ]);
+
+        return (int) $scanId;
     }
 
     /**
@@ -447,6 +527,54 @@ final class ScanRepository extends TenantRepository
         }
 
         return $scan;
+    }
+
+    /**
+     * Returns the recurring scans due to spawn a run at $now for THIS tenant.
+     *
+     * A scan is "due" when its cadence is not 'none', its next_run_at is at or
+     * before $now, it is not in a terminal state, AND its validity window has
+     * not lapsed (SFR-AUTH-001). Expired recurrences are NOT returned: they must
+     * be re-authorized rather than silently continued.
+     *
+     * @return list<SecurityScan>
+     */
+    public function dueScans(DateTimeImmutable $now): array
+    {
+        $stamp = $now->format(self::TIMESTAMP_FORMAT);
+
+        $rows = $this->selectScoped(
+            "recurrence <> :none"
+            . " AND next_run_at IS NOT NULL AND next_run_at <= :now"
+            . " AND status NOT IN ('completed', 'failed', 'stopped')"
+            . " AND (valid_until IS NULL OR valid_until > :valid_now)",
+            ['none' => self::RECURRENCE_NONE, 'now' => $stamp, 'valid_now' => $stamp]
+        );
+
+        return array_map([SecurityScan::class, 'fromRow'], $rows);
+    }
+
+    /**
+     * Computes the next next_run_at for a recurrence by advancing $from by the
+     * cadence's interval.
+     *
+     * Pure: no clock, no I/O. $from is the scan's current next_run_at (or a
+     * completion instant supplied by the caller). The decision about WHETHER to
+     * reschedule lives in the caller; this only answers "when is next".
+     *
+     * @throws InvalidArgumentException When $cadence is unknown (AC-002).
+     */
+    public static function rollForward(string $cadence, DateTimeImmutable $from): DateTimeImmutable
+    {
+        if (!isset(self::RECURRENCE_INTERVAL[$cadence])) {
+            throw new InvalidArgumentException(sprintf(
+                'Unknown recurrence cadence "%s"; allowed: %s.',
+                $cadence,
+                implode(', ', array_keys(self::RECURRENCE_INTERVAL))
+            ));
+        }
+
+        return $from->add(new DateInterval(self::RECURRENCE_INTERVAL[$cadence]));
     }
 
     private function transitionTo(string $status, int $id, string $from): bool

@@ -60,6 +60,10 @@ final class SecurityScan
         private readonly ?DateTimeImmutable $rateWindowStart = null,
         private readonly ?DateTimeImmutable $startedAt = null,
         private readonly ?DateTimeImmutable $stoppedAt = null,
+        private readonly string $recurrence = 'none',
+        private readonly ?DateTimeImmutable $validUntil = null,
+        private readonly ?DateTimeImmutable $nextRunAt = null,
+        private readonly ?string $recurrencePolicyVersion = null,
     ) {
     }
 
@@ -89,6 +93,10 @@ final class SecurityScan
             self::timeOrNull($row['rate_window_start'] ?? null),
             self::timeOrNull($row['started_at'] ?? null),
             self::timeOrNull($row['stopped_at'] ?? null),
+            self::stringOf($row['recurrence'] ?? 'none'),
+            self::timeOrNull($row['valid_until'] ?? null),
+            self::timeOrNull($row['next_run_at'] ?? null),
+            self::stringOrNull($row['recurrence_policy_version'] ?? null),
         );
     }
 
@@ -152,6 +160,43 @@ final class SecurityScan
         return $this->stoppedAt;
     }
 
+    public function recurrence(): string
+    {
+        return $this->recurrence;
+    }
+
+    public function validUntil(): ?DateTimeImmutable
+    {
+        return $this->validUntil;
+    }
+
+    public function nextRunAt(): ?DateTimeImmutable
+    {
+        return $this->nextRunAt;
+    }
+
+    public function recurrencePolicyVersion(): ?string
+    {
+        return $this->recurrencePolicyVersion;
+    }
+
+    public function isRecurring(): bool
+    {
+        return $this->recurrence !== 'none';
+    }
+
+    /**
+     * SFR-AUTH-001: an authorization's validity period has lapsed.
+     *
+     * A null valid_until means "no expiry". A non-null value lapses the instant
+     * $now reaches or passes it, so an expired recurrence must not spawn a run.
+     */
+    public function isExpiredAt(DateTimeImmutable $now): bool
+    {
+        return $this->validUntil !== null
+            && $this->validUntil->getTimestamp() <= $now->getTimestamp();
+    }
+
     public function isRunning(): bool
     {
         return $this->status === self::STATUS_RUNNING;
@@ -199,6 +244,15 @@ final class SecurityScan
     private static function intOf(mixed $value): int
     {
         return is_scalar($value) ? (int) $value : 0;
+    }
+
+    private static function stringOrNull(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_scalar($value) ? (string) $value : null;
     }
 
     private static function stringOf(mixed $value): string
