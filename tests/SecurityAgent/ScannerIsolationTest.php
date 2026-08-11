@@ -32,25 +32,21 @@ final class ScannerIsolationTest extends TestCase
      */
     private function policy(array $override = []): array
     {
-        $base = [
-            'require_isolated_network' => true,
-            'scanner_network_name' => 'scanner_net',
-            'forbidden_scope_dsns' => [
-                'mysql:host=db;dbname=aiwebscapes;charset=utf8mb4',
-                'tcp://redis:6379',
-            ],
-            'forbidden_scope_env_keys' => ['DB_DSN', 'REDIS_DSN', 'APP_KEY'],
-            'status' => 'PROPOSED',
-        ];
+        // Load the SHIPPED policy so the pinning test actually exercises the
+        // ratified file, not a literal baked into the test.
+        $shipped = require dirname(__DIR__, 2) . '/config/security/SCANNER_ISOLATION_POLICY.php';
+        if (!is_array($shipped)) {
+            $shipped = [];
+        }
 
-        return array_merge($base, $override);
+        return array_merge($shipped, $override);
     }
 
-    public function test_policy_is_proposed_and_pins_required_keys(): void
+    public function test_policy_is_ratified_and_pins_required_keys(): void
     {
         $policy = $this->policy();
 
-        self::assertSame('PROPOSED', $policy['status'] ?? null, 'SFR-SELF-001 policy is awaiting owner ratification; flip to RATIFIED on approval.');
+        self::assertSame('RATIFIED', $policy['status'] ?? null, 'SFR-SELF-001 policy is ratified; an unsourced value change must still fail CI.');
         foreach (['require_isolated_network', 'scanner_network_name', 'forbidden_scope_dsns', 'forbidden_scope_env_keys'] as $key) {
             self::assertArrayHasKey($key, $policy, "Policy must carry '$key' (SFR-SELF-001 contract term).");
         }

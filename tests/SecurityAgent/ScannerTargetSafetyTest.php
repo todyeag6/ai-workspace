@@ -263,15 +263,17 @@ final class ScannerTargetSafetyTest extends TestCase
 
     // ---------------------------------------------------------------
     // Pinning test - the shipped policy must keep the values it cites and the
-    // PROPOSED status until ratified. Changing a number without changing this
-    // test fails CI; that is the point (mirrors the other *_pins_its_* tests).
+    // RATIFIED status after owner ratification. Changing a number without
+    // changing this test fails CI; that is the point (mirrors the other
+    // *_pins_its_* tests). The test flipped from asserting PROPOSED to RATIFIED
+    // on ratification - the value pins below are what actually block drift.
     // ---------------------------------------------------------------
 
     public function test_shipped_scanner_target_policy_pins_its_contract_terms(): void
     {
         $policy = $this->policy();
 
-        self::assertSame('PROPOSED', $policy['status'] ?? null, 'SFR-SELF-005 policy is awaiting owner ratification; flip to RATIFIED on approval.');
+        self::assertSame('RATIFIED', $policy['status'] ?? null, 'SFR-SELF-005 policy is ratified; an unsourced value change must still fail CI.');
 
         // The pivot ranges must match the network-pivot defence in ToolGateway
         // (FR-TOOL-003): removing one would reopen an internal destination.

@@ -151,5 +151,5 @@ return [
     ],
 
     // Flip to 'RATIFIED' once the owner approves the values above.
-    'status' => 'PROPOSED',
+    'status' => 'RATIFIED',
 ];
