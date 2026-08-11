@@ -18,6 +18,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    # Production business systems live on app_net. The scanner surface is kept
+    # OFF this network by SFR-SELF-001: the deny-by-default scanner_net below
+    # carries NO production service, and ScannerInfrastructureGuard refuses a
+    # scan whose scope could reach db/redis (SC-7(8) Deny by Default; CISA
+    # Zero Trust Maturity Model 2023 microsegmentation).
 
   db:
     image: mysql:8
@@ -37,3 +42,19 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+
+# SFR-SELF-001 network segmentation (deny-by-default).
+#   app_net      - production business systems (app, db, redis).
+#   scanner_net  - the isolated scanner segment. It attaches to NO production
+#                  service, so a scanner on it cannot reach db/redis even if a
+#                  guard were bypassed (defence in depth). ScannerInfrastructure
+#                  Guard asserts the scanner reports this network name; the
+#                  compose declaration is the posture the guard checks.
+networks:
+  app_net:
+    name: aiwebscapes_app_net
+  scanner_net:
+    name: aiwebscapes_scanner_net
+    # No service is attached here in Option A (the guard enforces isolation in-
+    # process). When a dedicated scanner container is introduced (plan Option B),
+    # it attaches ONLY to scanner_net, never to app_net.

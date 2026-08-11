@@ -66,14 +66,30 @@ use RuntimeException;
 final class SafeScannerInvoker
 {
     /**
-     * @param array<string, mixed> $policy The decoded SCANNER_TARGET_POLICY.php.
-     *               Typed loosely (config-loaded); the constructor enforces the
-     *               keys it needs (fail closed).
-     *
-     * @throws RuntimeException When the policy is incomplete.
+     * Canonical path to the isolation policy; loaded automatically when a caller
+     * constructs the invoker with only the SFR-SELF-005 policy, so the
+     * SFR-SELF-001 guard is ALWAYS enforced (fail closed) and cannot be skipped
+     * by omitting the argument.
      */
-    public function __construct(private readonly array $policy)
-    {
+    private const DEFAULT_ISOLATION_POLICY = '/config/security/SCANNER_ISOLATION_POLICY.php';
+
+    /**
+     * @param array<string, mixed> $policy             The decoded SCANNER_TARGET_POLICY.php.
+     * @param array<string, mixed> $isolationPolicy    The decoded SCANNER_ISOLATION_POLICY.php.
+     *               Both typed loosely (config-loaded); the constructors enforce
+     *               the keys they need (fail closed). When omitted, the invoker
+     *               loads it from the canonical repo path so the guard runs.
+     * @param IncidentSignal|null $signal              Optional audited signal emitted when a
+     *               scan is refused (SFR-SELF-006). Null preserves the pure
+     *               process-spawning path for callers that do not wire audit.
+     *
+     * @throws RuntimeException When a policy is incomplete.
+     */
+    public function __construct(
+        private readonly array $policy,
+        private readonly array $isolationPolicy = [],
+        private readonly ?IncidentSignal $signal = null
+    ) {
         if (!array_key_exists('tool_binaries', $policy)) {
             throw new RuntimeException(sprintf(
                 'Scanner invoker policy is missing "%s"; refusing to construct an '
@@ -81,6 +97,34 @@ final class SafeScannerInvoker
                 'tool_binaries'
             ));
         }
+        $isolation = $this->resolveIsolationPolicy();
+        if (!array_key_exists('scanner_network_name', $isolation)) {
+            throw new RuntimeException(sprintf(
+                'Scanner invoker isolation policy is missing "%s"; refusing to construct an '
+                . 'incomplete SFR-SELF-001 guard (fail closed).',
+                'scanner_network_name'
+            ));
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveIsolationPolicy(): array
+    {
+        if ($this->isolationPolicy !== []) {
+            return $this->isolationPolicy;
+        }
+        $path = dirname(__DIR__, 2) . self::DEFAULT_ISOLATION_POLICY;
+        if (!is_file($path)) {
+            throw new RuntimeException(sprintf(
+                'Scanner isolation policy not found at "%s"; refusing to construct an '
+                . 'incomplete SFR-SELF-001 guard (fail closed).',
+                $path
+            ));
+        }
+        $loaded = require $path;
+        return is_array($loaded) ? $loaded : [];
     }
 
     /**
@@ -97,8 +141,27 @@ final class SafeScannerInvoker
      */
     public function run(string $tool, string $target, array $extra = []): mixed
     {
-        // 1. DECIDE: refuse the target before touching a process.
-        $safe = (new TargetSanitizer($this->policy))->sanitize($target);
+        try {
+            // 0. SFR-SELF-001: refuse to launch the scanner if its execution scope
+            //    could reach production. The guard is fail-closed and decides before
+            //    any process exists. The "reported network" is the segment the
+            //    scanner claims to be on; composer/wiring supplies the real value.
+            (new ScannerInfrastructureGuard($this->isolationPolicy()))
+                ->assertIsolated($this->scannerNetwork(), [], $this->childEnv());
+
+            // 1. DECIDE: refuse the target before touching a process.
+            $safe = (new TargetSanitizer($this->policy))->sanitize($target);
+        } catch (TargetRefused $e) {
+            // SFR-SELF-006: emit an audited signal before the refusal propagates,
+            // so the incident procedure has a real, measurable inbound event.
+            // The decision was made by the guard; this actor only records it.
+            $this->signal?->scanRefused(0, $this->reasonCode($e), 'denied', [
+                'tool' => $tool,
+                'guard' => 'SFR-SELF',
+            ]);
+
+            throw $e;
+        }
 
         // 2. AC-002: resolve a pinned binary; refuse unknown tool ids.
         $binaries = $this->policy['tool_binaries'] ?? [];
@@ -168,5 +231,61 @@ final class SafeScannerInvoker
             'PATH' => is_string($path) && $path !== '' ? $path : '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
             'LC_ALL' => 'C',
         ];
+    }
+
+    /**
+     * The isolation policy the SFR-SELF-001 guard consults. Resolved once at
+     * construction time (loaded from the canonical path when not injected), so
+     * the guard always receives a complete policy and cannot be skipped.
+     *
+     * @return array<string, mixed>
+     */
+    private function isolationPolicy(): array
+    {
+        return $this->resolveIsolationPolicy();
+    }
+
+    /**
+     * The Docker network the scanner reports it is attached to. Sourced from the
+     * isolation policy (the single source of truth for the segment name);
+     * a deployment that segments correctly sets scanner_network_name to the
+     * isolated network and attaches the scanner there.
+     */
+    private function scannerNetwork(): string
+    {
+        $policy = $this->resolveIsolationPolicy();
+        $name = $policy['scanner_network_name'] ?? '';
+        return is_string($name) ? $name : '';
+    }
+
+    /**
+     * Maps a refusal to a bounded, stable reason code stored as the audit
+     * object_id. The code is short and non-secret so it survives AuditLogger's
+     * high-entropy redaction (SFR-AUTH-003); the full (hostile) target is never
+     * recorded here.
+     */
+    private function reasonCode(TargetRefused $e): string
+    {
+        $message = $e->getMessage();
+        if (str_contains($message, 'SFR-SELF-001')) {
+            return 'self001:isolation';
+        }
+        if (str_contains($message, 'network pivoting') || str_contains($message, 'SSRF')) {
+            return 'self005:network-pivot';
+        }
+        if (str_contains($message, 'command injection')) {
+            return 'self005:cmd-injection';
+        }
+        if (str_contains($message, 'arbitrary tool flag')) {
+            return 'self005:flag-injection';
+        }
+        if (str_contains($message, 'path traversal')) {
+            return 'self005:path-traversal';
+        }
+        if (str_contains($message, 'supply-chain pivot')) {
+            return 'self005:binary-not-allowed';
+        }
+
+        return 'self005:refused';
     }
 }
