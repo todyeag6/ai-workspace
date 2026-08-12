@@ -77,6 +77,10 @@ final class DeployClientValidator
         if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
             return false;
         }
+        // In-stack service hostnames are local by definition (compose service names).
+        if (in_array($host, ['db', 'redis', 'openviking', 'ollama'], true)) {
+            return false;
+        }
         if (preg_match('/\.(local|internal|svc|cluster)$/', $host) === 1) {
             return false;
         }
