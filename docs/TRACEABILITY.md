@@ -91,16 +91,27 @@ directive) rather than expanding scope:
    `migrations/009_dashboard.sql` adds nullable `status` + `error` columns
    (idempotent, information_schema-guarded) so the queue is real data.
 
-## Phase-1 Exit Gate (plan §995) — status after T15
+## Phase-1 Exit Gate (plan §995) — status
 
-- [x] Suite green (201 tests, 524 assertions) on isolated DB — phpunit OK.
-- [x] phpstan L8 `[OK] No errors`; phpcs 0 errors (pre-existing line-length warnings only).
-- [x] composer audit: no vulnerabilities; gitleaks: no leaks.
-- [x] axe-core 4.13.0: 0 WCAG 2.2 AA violations (automated).
-- [x] Manual a11y pass (A11Y-006) recorded 2026-08-08.
-- [~] AC-001/002/003 negative tests present (T3/T8/T6 respectively) and green.
-- [~] Lead MVP 12-step E2E + Lead FRD Table 4 cases — owned by T10–T12 suites (not T15).
-- [x] T13 (`e3cfc07`) + T14 (`b9eefd1`) + T15 (`e540405`) + Phase 2 (P2-T1…T4, workflow `1aa7db3`, CI `d528f0e`) — all committed and pushed to `origin/main` (HEAD `d5ae649`, remote pushed 2026-08-08). No pending pushes.
+**This file is a requirement→implementation map, not a status report.** The
+"green / how many tests" numbers are intentionally NOT maintained here — prose
+status rots the moment a commit lands (it once claimed "161 tests" while Phase 3
+was shipping). For current build state, run the ground-truth script:
+
+```bash
+bash scripts/status.sh
+```
+
+That prints branch, HEAD, clean-tree, unpushed-commit count, the full delivered
+task list (from `git log` commit subjects, which already carry the requirement
+IDs), and the verify commands — all derived from git at run time. If this
+markdown and `scripts/status.sh` disagree, the script is right (per
+`docs/HANDOFF.md` ground rules).
+
+The Phase-1 tasks mapped above (P1-T15 Dashboard + WCAG 2.2 AA) are committed
+and pushed; Phase 2 and Phase 3 are likewise in `git log`. Do not re-derive or
+re-count here.
+
 - [ ] Pen-test window (SEC-009 / SFR-AUTH-001) — OPEN, book before release.
-- [ ] SLA numbers / performance budgets (NFR Table 5) — OPEN, owner input.
+- [ ] NFR Table 5 SLA numbers / performance budgets — see `config/security/NFR_SLA_POLICY.php` (PROPOSED; owner ratifies). This fills the FRD's open numeric budgets.
 - [ ] SEC-008 branch protection — BLOCKED by GitHub Free tier; documented OPEN, not skipped.
