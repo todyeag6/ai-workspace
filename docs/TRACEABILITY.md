@@ -30,6 +30,9 @@ for completeness; the authoritative verification is `tests/` + `scripts/status.s
 | P2 | FR-ORCH-003, BRD Table 4/6 reporting | `src/Workflow/WorkflowBuilder`, `src/Reporting/ReportAssembler` | `WorkflowBuilderTest`, `ReportAssemblerTest` |
 | P2 | BR-9.1/11.1/12.6 managed-ops substrate | `src/ManagedOps/*` | `AgentOwnershipTest`, `SlaRecordTest`, `SupportModelTest` |
 | P2 | P2-T5 packaged vertical offering | `src/VerticalOffering/*` | `tests/VerticalOffering/VerticalOfferingTest` |
+| P1 | LFR-DASH-002 (lead search/filter), LFR-DASH-003 (lead detail view) | `src/Leads/LeadDashboard.php` | `tests/Leads/LeadDashboardTest.php` (`test_filter_by_status_returns_only_matching_tenant_rows`, `test_detail_assembles_all_sections_for_one_lead`, `test_detail_is_null_for_other_tenant`) |
+| P4 | FR-DEP-002 (release metadata record) | `src/Deploy/ReleaseRecord.php` | `tests/Deploy/ReleaseRecordTest.php` (`test_from_array_requires_all_six_fields`, `test_version_must_look_like_a_release`) |
+| P1 | SEC-004 (security headers) | `src/Bootstrap/SecurityHeaders.php`, `public/index.php` | `tests/Bootstrap/SecurityHeadersTest.php` (`test_emits_exactly_the_four_required_headers`, `test_csp_does_not_allow_inline_scripts`) |
 
 > Note: the historical commit `d81a7b4 docs: fix stale TRACEABILITY.md status (Option A)`
 > previously patched only the Phase-1 header; this rewrite supersedes it and

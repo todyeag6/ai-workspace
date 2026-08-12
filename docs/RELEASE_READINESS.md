@@ -20,7 +20,7 @@ re-run per commit; verify live rather than trusting this snapshot.
 
 | # | Gate | Status | Evidence |
 |---|------|--------|----------|
-| 1 | Requirements traceability complete | GREEN | `docs/TRACEABILITY.md` maps Phase 1–5 requirement IDs → source → test; reconciled through Phase 5 (incl. stale "Phase 1" title fix). |
+| 1 | Requirements traceability complete | GREEN | `docs/TRACEABILITY.md` maps Phase 1–5 requirement IDs → source → test; reconciled through Phase 5 (incl. stale "Phase 1" title fix). LFR-DASH-002/003, FR-DEP-002 and SEC-004 now carry dedicated tests (`tests/Leads/LeadDashboardTest.php`, `tests/Deploy/ReleaseRecordTest.php`, `tests/Bootstrap/SecurityHeadersTest.php`). |
 | 2 | Unit and integration tests pass | GREEN | Full suite green on an isolated CREATE-only DB. Run via `scripts/status.sh` (phpunit target). |
 | 3 | Tenant isolation and authorization tests pass | GREEN | AC-001 enforced by mandatory `TenantScope`; tests in `tests/Agents/AgentRegistryTest.php`, `tests/Leads/PrivacyTest.php`, `tests/Dashboard/PipelineTest.php`. |
 | 4 | AI evaluation suite meets use-case thresholds | GREEN | P2-T1 golden-prompt eval harness gate-activates agents (FR-AGENT-003). |
@@ -29,9 +29,21 @@ re-run per commit; verify live rather than trusting this snapshot.
 | 7 | Performance / resilience meet agreed budgets | GREEN | Fail-closed startup (FR-CONF-001/002), Redis rate limiter (LFR-CAP-003), ordered migrations + proven backup/restore drill (FR-DEP-001), argon2id hasher (FR-IDENT-002). |
 | 8 | Static / dependency / secret / config scans pass | GREEN | phpstan L8 `[OK] No errors`; phpcs clean; CI secret + dependency scan + SBOM (P2 CI hardening, SEC-007/008). |
 | 9 | Penetration testing completed; critical findings zero; unresolved high findings explicitly accepted | AMBER | Engine + automated security tests present, but the **external pen-test (SEC-009 / BR-12.5) is NOT yet scheduled** — owner must book + retest before final shipment. Hard release gate. |
-| 10 | Backup and rollback tested | GREEN | FR-DEP-001 proven backup/restore drill (`faa4b25`). |
+| 10 | Backup and rollback tested | GREEN | FR-DEP-001 proven backup/restore drill (`faa4b25`). FR-DEP-002 release metadata is enforced by a dedicated `ReleaseRecord` value object (`tests/Deploy/ReleaseRecordTest.php`). |
 | 11 | Runbooks, training, inventory, release notes, support ownership complete | AMBER | `HARDWARE_SIZING` + `REMOTE_SUPPORT_POLICY` RATIFIED; **SEC-008 branch protection BLOCKED by GitHub Free tier** (see `docs/CI_AND_BRANCH_PROTECTION.md`). |
 | 12 | Client acceptance criteria satisfied | GREEN (internal) | All §11 AC implemented + tested; final client sign-off is a commercial step, not a code gate. |
+
+---
+
+## Pre-ship coverage closures (this reconciliation)
+
+Three coverage gaps were closed with real, tenant-scoped, fail-closed code + tests:
+
+- **LFR-DASH-002 / LFR-DASH-003** — `src/Leads/LeadDashboard.php` adds a tenant-scoped lead filter (date, source, status, assignee, priority, category, delivery) and a lead detail view assembling submission, AI output, corrections, interactions, tasks (+ delivery state), audit history and retention status. Deny-by-default on filter dimensions; cross-tenant rows excluded (`tests/Leads/LeadDashboardTest.php`).
+- **FR-DEP-002** — `src/Deploy/ReleaseRecord.php` enforces the six mandatory release-metadata fields (version, change record, test evidence, security status, migration status, rollback reference) and refuses a malformed record (`tests/Deploy/ReleaseRecordTest.php`).
+- **SEC-004** — `src/Bootstrap/SecurityHeaders.php` extracts the four security headers from `public/index.php` into a testable, deny-by-default set; a weakening (e.g. inline scripts in the CSP) is now caught by `tests/Bootstrap/SecurityHeadersTest.php`.
+
+These change the audit verdict: the platform is **shippable-after-pen-test**, with only the owner-gated AMBER items remaining (SEC-009 pen-test, `REGION_TOPOLOGY.php` ratification, SEC-008 branch protection).
 
 ---
 
