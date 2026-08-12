@@ -703,7 +703,10 @@ final class SecurityReportingTest extends TestCase
 
     public function test_a_session_token_reaching_a_report_refuses_the_report(): void
     {
-        $jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+        // Fixture generated at runtime (never hard-coded): a JWT-shaped string
+        // (eyJ + 3 base64url segments) that trips the session-token redactor.
+        $b64u = static fn (): string => rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
+        $jwt = 'eyJ' . $b64u() . '.' . $b64u() . '.' . $b64u();
 
         try {
             $this->builder()->retestReport(

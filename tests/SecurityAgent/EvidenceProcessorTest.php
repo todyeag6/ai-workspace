@@ -159,6 +159,10 @@ final class EvidenceProcessorTest extends TestCase
     {
         $result = new ScannerResult('nmap', 'app.acme.test', ScannerResult::STATUS_INFO, []);
 
+        // Fixture generated at runtime (never hard-coded): a session-token-shaped
+        // value the redaction engine is asserted to strip.
+        $sessionToken = 'sess_' . bin2hex(random_bytes(6));
+
         $evidence = $this->processor()->process(
             1,
             1,
@@ -166,14 +170,14 @@ final class EvidenceProcessorTest extends TestCase
             $result,
             '7.94',
             'auth-probe',
-            ['token' => 'sess_9f8e7d6c5b4a', 'status' => 'ok'],
+            ['token' => $sessionToken, 'status' => 'ok'],
             null,
             $this->at('2026-02-10 12:00:00')
         );
 
         // The secret is GONE, replaced by a marker.
         $stored = $evidence->responseMetadata();
-        self::assertNotContains('sess_9f8e7d6c5b4a', $stored, 'The session token must not survive.');
+        self::assertNotContains($sessionToken, $stored, 'The session token must not survive.');
         self::assertSame(RedactionScanner::markerFor('session_token'), $stored['token'] ?? null);
         self::assertSame('ok', $stored['status'] ?? null, 'Non-sensitive values are untouched.');
 
