@@ -42,6 +42,25 @@ class Health
     }
 
     /**
+     * BR-9.1 support-boundary report (read-only; P4-T9).
+     *
+     * Surfaces the engagement's support boundary plus the named backup/update
+     * owners so an operator (and opt-in remote support) can see the responsibilities
+     * at a glance. No IO — the caller supplies the values (typically from the
+     * ManagedOps SupportModel / AgentOwnership record).
+     *
+     * @return array{support_boundary: string, backup_owner: string, update_owner: string}
+     */
+    public function supportBoundary(string $boundary, string $backupOwner, string $updateOwner): array
+    {
+        return [
+            'support_boundary' => $boundary,
+            'backup_owner' => $backupOwner,
+            'update_owner' => $updateOwner,
+        ];
+    }
+
+    /**
      * @return array{ok: bool, error?: string}
      */
     protected function probeDb(): array

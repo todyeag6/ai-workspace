@@ -39,10 +39,10 @@ final class LocalInferenceProfile
             throw new InvalidArgumentException(sprintf('Unknown deployment_model: %s', $deploymentModel));
         }
 
-        if (($deploymentModel === 'local' || $deploymentModel === 'hybrid')
-            && !str_starts_with($localOllamaUrl, 'http://ollama')
-            && !str_starts_with($localOllamaUrl, 'http://host.docker.internal')
-        ) {
+        $isLocalOrHybrid = $deploymentModel === 'local' || $deploymentModel === 'hybrid';
+        $bindsLocalOllama = str_starts_with($localOllamaUrl, 'http://ollama')
+            || str_starts_with($localOllamaUrl, 'http://host.docker.internal');
+        if ($isLocalOrHybrid && !$bindsLocalOllama) {
             throw new InvalidArgumentException(
                 'Local/hybrid deployment must bind the in-stack or host-local Ollama URL.'
             );
