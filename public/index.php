@@ -76,10 +76,7 @@ $response = $controller->handle(['method' => $method, 'path' => $path]);
 
 http_response_code($response['status']);
 header('Content-Type: text/html; charset=utf-8');
-header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'");
-header('Referrer-Policy: no-referrer');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
+\App\Bootstrap\SecurityHeaders::apply();
 
 if ($response['status'] === 200) {
     echo $response['body']['html'];
