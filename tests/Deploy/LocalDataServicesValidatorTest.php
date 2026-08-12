@@ -15,6 +15,9 @@ use PHPUnit\Framework\Attributes\Test;
  */
 final class LocalDataServicesValidatorTest extends TestCase
 {
+    /**
+     * @return array<string,string>
+     */
     private function cfg(string $model, string $dbDsn, string $vectorDsn): array
     {
         return [

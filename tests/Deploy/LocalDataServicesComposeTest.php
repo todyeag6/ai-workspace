@@ -48,12 +48,13 @@ final class LocalDataServicesComposeTest extends TestCase
         if (class_exists(\Symfony\Component\Yaml\Yaml::class)) {
             return \Symfony\Component\Yaml\Yaml::parseFile(self::COMPOSE);
         }
-        $text = file_get_contents(self::COMPOSE);
+        $text = (string) file_get_contents(self::COMPOSE);
         $services = [];
         foreach (['openviking', 'db'] as $name) {
-            if (preg_match('/^  ' . $name . ':\s*$/m', $text, $m, PREG_OFFSET_CAPTURE)) {
+            if (preg_match('/^  ' . $name . ':\\s*$/m', $text, $m, PREG_OFFSET_CAPTURE)) {
                 $start = $m[0][1];
-                $block = preg_split('/^\n  [a-z_-]+:\s*$/m', substr($text, $start), 2)[0];
+                $parts = preg_split('/^\\n  [a-z_-]+:\\s*$/m', substr($text, $start), 2);
+                $block = is_array($parts) ? $parts[0] : '';
                 $services[$name] = [
                     'networks' => preg_match_all('/-\s*(app_net|scanner_net)/', $block, $mm) ? $mm[1] : [],
                 ];

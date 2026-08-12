@@ -14,7 +14,10 @@ use PHPUnit\Framework\Attributes\Test;
  */
 final class DeployClientValidatorTest extends TestCase
 {
-    /** Minimal valid config for a local deployment. */
+    /**
+     * Minimal valid config for a local deployment.
+     * @return array<string,string>
+     */
     private function validLocal(): array
     {
         return [

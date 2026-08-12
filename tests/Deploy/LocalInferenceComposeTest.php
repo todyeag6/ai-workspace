@@ -45,12 +45,13 @@ final class LocalInferenceComposeTest extends TestCase
             return \Symfony\Component\Yaml\Yaml::parseFile(self::COMPOSE);
         }
         // Fallback: lightweight line scan for the assertions above.
-        $text = file_get_contents(self::COMPOSE);
+        $text = (string) file_get_contents(self::COMPOSE);
         $services = [];
-        if (preg_match('/^  ollama:\s*$/m', $text, $m, PREG_OFFSET_CAPTURE)) {
+        if (preg_match('/^  ollama:\\s*$/m', $text, $m, PREG_OFFSET_CAPTURE)) {
             $start = $m[0][1];
             $rest = substr($text, $start);
-            $block = preg_split('/^\n  [a-z_-]+:\s*$/m', $rest, 2)[0];
+            $parts = preg_split('/^\\n  [a-z_-]+:\\s*$/m', $rest, 2);
+            $block = is_array($parts) ? $parts[0] : '';
             $services['ollama'] = [
                 'networks' => preg_match_all('/-\s*(app_net|scanner_net)/', $block, $mm) ? $mm[1] : [],
             ];

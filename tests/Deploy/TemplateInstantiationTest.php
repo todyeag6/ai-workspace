@@ -63,6 +63,7 @@ final class TemplateInstantiationTest extends TestCase
     }
 
     /**
+     * @param array<string,mixed> $tpl
      * @return array<string,mixed>
      */
     private function compose(array $tpl, string $model, string $dbDsn, string $vectorDsn): array
