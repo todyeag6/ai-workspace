@@ -54,6 +54,7 @@ These are reference documents, not status:
 | `THREAT_MODEL.md` | Security model and trust boundaries |
 | `INCIDENT_RESPONSE.md` | BR-12.6 incident runbook |
 | `TRACEABILITY.md` | Requirement → implementation map (Phases 1–5) |
+| `RELEASE_READINESS.md` | FRD §10/§11 release gates → status checklist |
 | `adr/` | Architecture decision records |
 
 `TRACEABILITY.md` was reconciled to carry Phase 1 through Phase 5
