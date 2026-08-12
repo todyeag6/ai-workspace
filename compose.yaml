@@ -43,7 +43,26 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
 
-  # P4-T5 (hybrid local inference) — in-stack Ollama for the LOCAL on-prem path.
+  # P4-T7 (local vector/data services) — in-stack OpenViking knowledge store for
+  # the local/hybrid path. Reaches the host's running OpenViking via
+  # host.docker.internal (same pattern as AI_LOCAL_BASE_URL); attaches to app_net
+  # ONLY, never to scanner_net (SFR-SELF-001 topology held). Relational data is
+  # already provided in-stack by `db` (FR-DATA-001 at rest).
+  openviking:
+    image: curistech/openviking:latest
+    restart: unless-stopped
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      OPENVIKING_ENDPOINT: 'http://host.docker.internal:1933'
+    networks:
+      - app_net
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://host.docker.internal:1933/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
   # Attaches to app_net ONLY; never to scanner_net (SFR-SELF-001 topology held).
   # The hybrid path additionally reuses the existing cloud adapter via
   # AI_LOCAL_BASE_URL (no new service). Volume persists pulled models across restarts.

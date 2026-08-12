@@ -41,7 +41,8 @@ final class LocalInferenceProfile
 
         if (($deploymentModel === 'local' || $deploymentModel === 'hybrid')
             && !str_starts_with($localOllamaUrl, 'http://ollama')
-            && !str_starts_with($localOllamaUrl, 'http://host.docker.internal')) {
+            && !str_starts_with($localOllamaUrl, 'http://host.docker.internal')
+        ) {
             throw new InvalidArgumentException(
                 'Local/hybrid deployment must bind the in-stack or host-local Ollama URL.'
             );
