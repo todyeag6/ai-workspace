@@ -43,6 +43,24 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
 
+  # P4-T5 (hybrid local inference) — in-stack Ollama for the LOCAL on-prem path.
+  # Attaches to app_net ONLY; never to scanner_net (SFR-SELF-001 topology held).
+  # The hybrid path additionally reuses the existing cloud adapter via
+  # AI_LOCAL_BASE_URL (no new service). Volume persists pulled models across restarts.
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - app_net
+    healthcheck:
+      test: ['CMD', 'ollama', 'list']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
 # SFR-SELF-001 network segmentation (deny-by-default).
 #   app_net      - production business systems (app, db, redis).
 #   scanner_net  - the isolated scanner segment. It attaches to NO production
@@ -58,3 +76,6 @@ networks:
     # No service is attached here in Option A (the guard enforces isolation in-
     # process). When a dedicated scanner container is introduced (plan Option B),
     # it attaches ONLY to scanner_net, never to app_net.
+
+volumes:
+  ollama_data:
