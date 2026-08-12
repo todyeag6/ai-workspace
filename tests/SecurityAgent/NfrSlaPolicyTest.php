@@ -30,7 +30,7 @@ class NfrSlaPolicyTest extends TestCase
     {
         $policy = $this->policy();
 
-        self::assertSame('PROPOSED', $policy['status'] ?? null, 'Policy is PROPOSED until the owner ratifies it.');
+        self::assertSame('RATIFIED', $policy['status'] ?? null, 'Policy is ratified; an unsourced value change must still fail CI.');
         self::assertSame(99.9, $policy['availability']['monthly_uptime_percent']);
         self::assertSame(43, $policy['availability']['max_monthly_downtime_minutes']);
         self::assertTrue($policy['availability']['graceful_degradation_required']);

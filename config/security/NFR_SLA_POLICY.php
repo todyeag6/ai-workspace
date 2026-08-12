@@ -40,7 +40,7 @@
 
 return [
     // Flip to 'RATIFIED' once the owner approves the values below.
-    'status' => 'PROPOSED',
+    'status' => 'RATIFIED',
     'config_version' => 'nfr-sla-policy-2026-08-11',
 
     // ---- Availability (NIST SC-5 / CP-10; SRE reference) -----------------
