@@ -11,6 +11,13 @@ services:
       TEST_DB_DSN: 'mysql:host=db;dbname=aiwebscapes_test;charset=utf8mb4'
       REDIS_DSN: 'tcp://redis:6379'
       AI_LOCAL_BASE_URL: 'http://host.docker.internal:11434/v1'
+    # Load .env into the container so locally-set secrets (e.g. APP_KEY for the
+    # legacy boot path, FR-CONF-002) are available. `environment:` above wins on
+    # conflict, so the hardcoded DSNs are unaffected. required:false keeps a
+    # fresh clone bootable before the user has copied .env.example -> .env.
+    env_file:
+      - path: .env
+        required: false
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     depends_on:

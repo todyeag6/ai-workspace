@@ -66,7 +66,10 @@ $D vendor/bin/phpcs --standard=phpcs.xml -n src tests
 
 # --- 2. Static analysis -------------------------------------------------------
 banner "PHPStan level 8"
-$D vendor/bin/phpstan analyse --no-progress
+# --memory-limit=1G is REQUIRED: the app container's php.ini default is 128M,
+# which OOMs PHPStan on the real src+tests+build tree and reports a fake
+# "severe errors" result that looks like a code failure (docs/HANDOFF.md).
+$D vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
 # --- 3. Dependency vulnerabilities --------------------------------------------
 banner "Dependency vulnerabilities (composer audit)"
