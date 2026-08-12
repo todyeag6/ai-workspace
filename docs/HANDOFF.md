@@ -53,8 +53,13 @@ These are reference documents, not status:
 |---|---|
 | `THREAT_MODEL.md` | Security model and trust boundaries |
 | `INCIDENT_RESPONSE.md` | BR-12.6 incident runbook |
-| `TRACEABILITY.md` | Requirement → implementation map |
+| `TRACEABILITY.md` | Requirement → implementation map (Phases 1–5) |
 | `adr/` | Architecture decision records |
+
+`TRACEABILITY.md` was reconciled to carry Phase 1 through Phase 5
+requirement→implementation rows (its former "Phase 1" title was stale). It
+stays a map, not a status report — live build state is still derived from
+`scripts/status.sh`, never written here.
 
 The requirements baseline is **outside the repo**, at
 `C:\Users\CTYea\awsx_docs\` (7 `.docx`). Those files are authoritative; the
