@@ -1,9 +1,13 @@
 <?php
+
 /**
  * Industry template: finance.
  * Large profile for higher density / on-demand model capacity.
  * @return array<string,mixed>
  */
+
+declare(strict_types=1);
+
 return [
     'hardware_profile' => 'large',
     'policy_defaults' => [

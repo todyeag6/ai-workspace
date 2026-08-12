@@ -1,9 +1,13 @@
 <?php
+
 /**
  * Industry template: legal.
  * Data residency is explicit and local (FR-DATA-001 posture for privileged client data).
  * @return array<string,mixed>
  */
+
+declare(strict_types=1);
+
 return [
     'hardware_profile' => 'small',
     'policy_defaults' => [

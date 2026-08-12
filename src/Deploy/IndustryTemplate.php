@@ -36,7 +36,8 @@ final class IndustryTemplate
             throw new DeployConfigException(sprintf('Template file missing: %s', $path));
         }
         $config = require $path;
-        if (!is_array($config)
+        if (
+            !is_array($config)
             || !isset($config['hardware_profile'], $config['policy_defaults'], $config['sector_notes'])
             || !in_array($config['hardware_profile'], ['small', 'medium', 'large'], true)
         ) {

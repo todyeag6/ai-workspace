@@ -1,9 +1,13 @@
 <?php
+
 /**
  * Industry template: healthcare.
  * Medium profile; PHI-class data defaults to local with restricted-class refusal.
  * @return array<string,mixed>
  */
+
+declare(strict_types=1);
+
 return [
     'hardware_profile' => 'medium',
     'policy_defaults' => [
