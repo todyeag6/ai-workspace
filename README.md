@@ -82,6 +82,24 @@ Run each *inside* the container (`docker compose exec -T app php scripts/...`):
 4. **Secret scan over an empty mount = false pass.** Already guarded inside
    `ci-local.sh` (it refuses to trust a scan under ~20 KB). No action needed.
 
+## Secret scanning is mandatory before every commit
+The gitleaks secret scan (gate 5 of `scripts/ci-local.sh`) is **required to pass
+before any `git commit`** — not optional. The rule exists because this repo got
+burned: a commit landed *without* a gitleaks pass, and the gate then failed on
+two hardcoded test fixtures. So:
+
+- **Never hardcode secrets** — not even "fake" ones. A look-alike token still
+  trips the scanner and forces a suppression hack. Generate test fixtures at
+  runtime (`bin2hex(random_bytes(N))`, etc.) instead.
+- **Do not suppress findings with `// gitleaks:ignore`.** That hides the symptom;
+  remove the literal. `.gitleaks.toml` may only allowlist third-party/generated
+  artifacts (vendor, lockfiles, sbom.xml, backups/) — never `src/` or `tests/`.
+- Quick pre-commit check (must print `no leaks found`):
+  ```bash
+  docker run --rm -v "$(pwd -W)":/repo ghcr.io/gitleaks/gitleaks:latest \
+    dir /repo --redact --no-banner --config=/repo/.gitleaks.toml
+  ```
+
 ## Do I need an APP_KEY?
 **No — not for testing or learning.** The test suite, the quality gates, and the
 demo dashboard all run without it. `APP_KEY` is read *only* by the **legacy boot
