@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#5b6b7b"/>
+    </marker>
+    <style>
+      .box { fill:#0f1b2d; stroke:#2f6df0; stroke-width:1.5; rx:8; }
+      .svc { fill:#102a1c; stroke:#2faf6a; stroke-width:1.5; }
+      .ext { fill:#2a1020; stroke:#d05a8c; stroke-width:1.5; }
+      .lbl { fill:#e8eef6; font-size:13px; }
+      .sub { fill:#9fb0c4; font-size:10px; }
+      .title { fill:#e8eef6; font-size:18px; font-weight:700; }
+      .edge { stroke:#5b6b7b; stroke-width:1.2; fill:none; }
+      .edgeD { stroke:#d05a8c; stroke-width:1.4; fill:none; stroke-dasharray:5 4; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="640" fill="#0a1320"/>
+  <text x="24" y="34" class="title">Aiwebscapes Platform — Architecture Sitemap</text>
+  <text x="24" y="52" class="sub">Only served HTTP surface: public/index.php → Dashboard. Everything else is array-in/array-out (tested directly).</text>
+
+  <!-- LAPTOP -->
+  <rect x="24" y="70" width="240" height="120" rx="8" fill="#0f1b2d" stroke="#3a4a5e"/>
+  <text x="40" y="92" class="lbl">Your Laptop</text>
+  <text x="40" y="112" class="sub">edit src/ tests/</text>
+  <text x="40" y="128" class="sub">compose.yaml</text>
+  <text x="40" y="144" class="sub">.env (optional)</text>
+  <text x="40" y="170" class="sub">git-bash + Docker Desktop</text>
+
+  <!-- DOCKER -->
+  <rect x="300" y="70" width="680" height="430" rx="10" fill="#0b1422" stroke="#3a4a5e"/>
+  <text x="318" y="92" class="lbl">Docker Stack (compose.yaml)</text>
+
+  <!-- services -->
+  <rect x="320" y="110" width="150" height="60" rx="8" class="svc"/>
+  <text x="334" y="134" class="lbl">app</text>
+  <text x="334" y="152" class="sub">workspace runner</text>
+  <text x="334" y="166" class="sub">sleep infinity</text>
+
+  <rect x="490" y="110" width="130" height="60" rx="8" class="svc"/>
+  <text x="504" y="134" class="lbl">db (mysql:8)</text>
+  <text x="504" y="152" class="sub">aiwebscapes</text>
+  <text x="504" y="166" class="sub">aiwebscapes_test</text>
+
+  <rect x="640" y="110" width="120" height="60" rx="8" class="svc"/>
+  <text x="654" y="134" class="lbl">redis</text>
+  <text x="654" y="152" class="sub">7-alpine</text>
+
+  <rect x="780" y="110" width="150" height="60" rx="8" class="svc"/>
+  <text x="794" y="134" class="lbl">openviking</text>
+  <text x="794" y="152" class="sub">knowledge store</text>
+
+  <rect x="780" y="190" width="150" height="60" rx="8" class="svc"/>
+  <text x="794" y="214" class="lbl">ollama</text>
+  <text x="794" y="232" class="sub">local models</text>
+
+  <!-- served page -->
+  <rect x="320" y="200" width="150" height="60" rx="8" class="box"/>
+  <text x="334" y="224" class="lbl">public/index.php</text>
+  <text x="334" y="242" class="sub">/dashboard (demo)</text>
+  <text x="334" y="256" class="sub">→ DashboardController</text>
+
+  <!-- domain cluster -->
+  <rect x="320" y="290" width="610" height="190" rx="8" fill="#0f1b2d" stroke="#2f6df0"/>
+  <text x="336" y="310" class="lbl">src/ domains (25) — array-in/array-out controllers</text>
+  <text x="336" y="330" class="sub">Agents · AI · Assessment · Audit · Bootstrap · Compliance · Config · Connectors</text>
+  <text x="336" y="346" class="sub">Dashboard · Data · Deploy · Eval · Identity · Infra · Leads · ManagedOps</text>
+  <text x="336" y="362" class="sub">Notification · Observability · Reporting · Security · SecurityAgent · Tenancy</text>
+  <text x="336" y="378" class="sub">Tools · VerticalOffering · Workflow</text>
+  <text x="336" y="404" class="sub">Cross-cutting guarantees:</text>
+  <text x="336" y="420" class="sub">AC-001 tenant isolation (TenantScope) · SEC-002 allowlist ToolGateway</text>
+  <text x="336" y="436" class="sub">FR-CONF-002 fails-closed Secrets · SFR-SELF-001 deny-by-default nets</text>
+  <text x="336" y="462" class="sub">Every domain has ≥1 test class · 560 tests / 1805 assertions</text>
+
+  <!-- QUALITY GATES -->
+  <rect x="24" y="210" width="240" height="290" rx="10" fill="#0b1422" stroke="#3a4a5e"/>
+  <text x="40" y="232" class="lbl">Quality Gates</text>
+  <text x="40" y="254" class="sub">bash scripts/ci-local.sh</text>
+  <text x="40" y="278" class="sub">1. phpcs (PSR-12)</text>
+  <text x="40" y="296" class="sub">2. phpstan L8 --memory-limit=1G</text>
+  <text x="40" y="314" class="sub">3. composer audit</text>
+  <text x="40" y="332" class="sub">4. CycloneDX SBOM</text>
+  <text x="40" y="350" class="sub">5. gitleaks (REQUIRED pre-commit)</text>
+  <text x="40" y="368" class="sub">6. phpunit (real MySQL 8)</text>
+  <text x="40" y="398" class="sub">CLI scripts:</text>
+  <text x="40" y="416" class="sub">migrate / backup / restore</text>
+  <text x="40" y="434" class="sub">deploy-client / status</text>
+  <text x="40" y="462" class="sub">Truth source:</text>
+  <text x="40" y="478" class="sub">bash scripts/status.sh</text>
+
+  <!-- EDGES -->
+  <line x1="264" y1="130" x2="320" y2="140" class="edge" marker-end="url(#arrow)"/>
+  <line x1="470" y1="170" x2="490" y2="150" class="edge" marker-end="url(#arrow)"/>
+  <line x1="380" y1="170" x2="640" y2="140" class="edge" marker-end="url(#arrow)"/>
+  <line x1="470" y1="170" x2="780" y2="140" class="edge" marker-end="url(#arrow)"/>
+  <line x1="380" y1="140" x2="780" y2="190" class="edge" marker-end="url(#arrow)"/>
+  <line x1="470" y1="170" x2="320" y2="200" class="edge" marker-end="url(#arrow)"/>
+  <line x1="470" y1="170" x2="320" y2="290" class="edge" marker-end="url(#arrow)"/>
+  <line x1="264" y1="300" x2="320" y2="300" class="edge" marker-end="url(#arrow)"/>
+  <line x1="780" y1="240" x2="870" y2="300" class="edgeD"/>
+  <text x="800" y="278" class="sub" fill="#d05a8c">host.docker.internal</text>
+
+  <text x="24" y="620" class="sub">Generated 2026-08-12 from the live tree. app_net = production services; scanner_net = deny-by-default isolated segment.</text>
+</svg>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sitemap for the Aiwebscapes Platform.
+  This is a backend with no website to crawl: the ONLY served HTTP surface is
+  the demo dashboard front controller (public/index.php). Every other entry
+  point (tests, CLI scripts, controllers) is array-in/array-out and not routed
+  over HTTP, so they are intentionally absent from this sitemap.
+  Base URL is configurable via APP_BASE_URL (.env.example, default
+  https://aiwebscapes.com). Update <loc> if the deployment base changes.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://aiwebscapes.com/dashboard</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <lastmod>2026-08-12</lastmod>
+  </url>
+</urlset>
