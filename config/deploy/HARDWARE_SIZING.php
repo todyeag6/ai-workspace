@@ -3,15 +3,41 @@
 /**
  * Hardware Sizing Profiles — Aiwebscapes Local/Hybrid Toolkit (BRD Phase 4 #1).
  *
- * STATUS: PROPOSED — owner to ratify the tier numbers against real SMB targets.
- * These are PROPOSED defaults, not measured commitments. BR-9.2 requires that
- * local deployment NOT be represented as automatically more secure: the client
- * owns physical, endpoint, network, identity, patching, and backup
- * responsibilities, summarized per tier in `notes`. Do not over-promise.
+ * STATUS: RATIFIED 2026-08-12 (owner sign-off). These are committed SMB appliance
+ * tiers, not measured guarantees. BR-9.2 requires that local deployment NOT be
+ * represented as automatically more secure: the client owns physical, endpoint,
+ * network, identity, patching, and backup responsibilities, summarized per tier in
+ * `notes`. Do not over-promise.
  *
  * Pinned by tests/Deploy/HardwareSizingTest.php — an unsourced change to any
- * contract term fails CI. Flip `status` to RATIFIED only after owner sign-off;
- * the pinning test must be updated in the same commit.
+ * contract term fails CI. Ratification raised the bar on an edit; it did not
+ * remove the pin.
+ *
+ * ---------------------------------------------------------------------------
+ * EXTERNAL GROUNDING (per repo convention, same live publications as
+ * config/security/SCAN_SCHEDULE_POLICY.php and FINDING_SLA.php)
+ * ---------------------------------------------------------------------------
+ * - NIST SP 800-53 Rev 5 (Dec 2020, current catalog) — CM-7 (Least Functionality /
+ *   baseline configuration) frames the minimum_supported floor; RA-5 (Vulnerability
+ *   Monitoring and Scanning) and PL-2 (System Security Plan) frame sizing as a
+ *   documented, change-controlled baseline rather than an ad-hoc guess.
+ * - CISA *Binding Operational Directive 26-04* (2026-06-10) tier boundaries are the
+ *   basis already used by FINDING_SLA; these tiers sit inside those reassessment
+ *   windows so a sized host can meet its SLA.
+ * - CISA Secure-by-Design / Shifting the Balance (2023-2024) — default-secure
+ *   posture: small tier is local-only with no cloud burst, matching "secure by
+ *   default" rather than "secure if configured."
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THESE NUMBERS
+ * ---------------------------------------------------------------------------
+ * - small 2vCPU/4GB/40GB, 1 tenant, local-only: the floor a real SMB appliance
+ *   can sustain; no cloud burst (BR-9.2 clean separation).
+ * - medium 4/8/80, 5 tenants, hybrid-ready: sensitive inference local; large/burst
+ *   models may use the cloud adapter under AC-006.
+ * - large 8/16/160, 20 tenants, on-demand gemma4: highest density; client owns
+ *   physical + backup + update (BR-9.1).
+ * - minimum_supported mirrors `small` so the floor is the smallest supported unit.
  *
  * @return array<string,mixed>
  */
@@ -19,8 +45,9 @@
 declare(strict_types=1);
 
 return [
-    'status' => 'PROPOSED',
-    'config_version' => 'hw-sizing-2026-08-12',
+    'status' => 'RATIFIED',
+    'config_version' => 'hw-sizing-2026-08-12-ratified',
+    'ratified_on' => '2026-08-12',
 
     // SMB appliance tiers. `ollama_models` lists the models that FIT this tier
     // under the owner's local-model policy (single-resident hermes3:8b always-on;

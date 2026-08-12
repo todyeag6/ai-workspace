@@ -32,13 +32,13 @@ final class HardwareSizingTest extends TestCase
     }
 
     #[Test]
-    public function test_policy_is_proposed_until_owner_ratifies(): void
+    public function test_policy_is_ratified_by_owner(): void
     {
         $policy = require self::POLICY_PATH;
         self::assertSame(
-            'PROPOSED',
+            'RATIFIED',
             $policy['status'] ?? null,
-            'Hardware sizing profile is PROPOSED until the owner ratifies it.'
+            'Hardware sizing profile is RATIFIED (owner sign-off 2026-08-12).'
         );
     }
 
