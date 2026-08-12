@@ -80,7 +80,7 @@ final class ScanSchedulerTest extends TestCase
     }
 
     // =========================================================================
-    // THE PINNING TEST — keeps the PROPOSED policy honest.
+    // THE PINNING TEST — keeps the RATIFIED policy honest.
     // Sourced to NIST SP 800-53 Rev 5 CA-7 / SC-8 and OWASP ASVS 5.0 V14.3.
     // =========================================================================
     public function test_shipped_scan_schedule_policy_pins_its_contract_terms(): void
@@ -89,7 +89,7 @@ final class ScanSchedulerTest extends TestCase
         $policy = require $path;
 
         self::assertIsArray($policy, 'Policy must return an array.');
-        self::assertSame('PROPOSED', $policy['status'] ?? null, 'Policy is still PROPOSED until the owner ratifies it.');
+        self::assertSame('RATIFIED', $policy['status'] ?? null, 'Policy is ratified; an unsourced value change must still fail CI.');
         self::assertSame(['daily', 'weekly', 'monthly'], $policy['allowed_cadences']);
         self::assertSame('weekly', $policy['default_cadence']);
         self::assertSame(365, $policy['max_validity_days']);

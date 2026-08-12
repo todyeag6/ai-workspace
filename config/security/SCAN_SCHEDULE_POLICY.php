@@ -50,7 +50,7 @@
  */
 
 return [
-    'status' => 'PROPOSED',
+    'status' => 'RATIFIED',
     'config_version' => 'scan-schedule-policy-2026-08-10',
 
     // The cadence the scheduler falls back to when a caller does not specify one.
