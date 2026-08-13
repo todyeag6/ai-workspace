@@ -47,7 +47,7 @@ Format: `Domain | src files | test files`
 Every `src/` domain has at least one test class — **no domain is untested**.
 Heaviest-tested: `Deploy` (16), `Leads` (5), `ManagedOps` (4), `Security` (4),
 `SecurityAgent` (13), `Identity` (3), `Workflow` (3), `Compliance` (4).
-Full suite: **560 tests / 1805 assertions** (`bash scripts/ci-local.sh`, gate 6).
+Full suite: run `bash scripts/status.sh` (or `bash scripts/ci-local.sh`, gate 6) for the current test/assertion count — written counts go stale, so they are not recorded here.
 
 ## 4. CLI scripts (`scripts/`)
 | Script | Purpose |
