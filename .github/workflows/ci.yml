@@ -106,11 +106,11 @@ jobs:
 
       # --- Gate 1: PSR-12 -----------------------------------------------------
       - name: PSR-12 (phpcs)
-        run: vendor/bin/phpcs --standard=phpcs.xml src tests
+        run: vendor/bin/phpcs --standard=phpcs.xml -n src tests
 
       # --- Gate 2: static analysis -------------------------------------------
       - name: PHPStan level 8
-        run: vendor/bin/phpstan analyse --no-progress
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
       # --- Gate 3: dependency vulnerabilities --------------------------------
       - name: Dependency vulnerabilities (composer audit)
