@@ -22,11 +22,13 @@ configure"), the service is now named `db` to match the DSN and the
 `/etc/hosts` hack is gone. The pre-fix runs failed with run=failure /
 job=cancelled / 0 steps / no logs — consistent with an unreachable service.
 
-**Pitfall in `ci-local.sh` itself:** under `set -euo pipefail` the script must
-invoke phpcs with `-n`. Without it, line-length *warnings* make phpcs exit 2,
-the script aborts at gate 1, and the `ALL LOCAL CI GATES PASSED (6/6)` banner
-never prints — while handoff docs claimed 6/6 anyway. Fixed in `4891388`. Never
-trust a written "6/6"; run the script and read its exit and banner.
+**Parity fix** (`0d79748`): the phpstan step in `ci.yml` was missing
+`--memory-limit=1G` and the phpcs step was missing `-n`. Without these, CI diverged
+from `scripts/ci-local.sh`: phpstan OOM'd at the 128M default and reported a fake
+"severe errors", and phpcs failed on accepted line-length warnings. Both flags are
+now in `ci.yml`, matching `ci-local.sh`. The local-script pitfall (needing `-n`
+under `set -euo pipefail`) is still relevant for anyone running `ci-local.sh` by hand,
+but the CI-vs-local parity gap is closed.
 
 ## SEC-008 branch protection is BLOCKED by the plan tier — OPEN, not skipped
 

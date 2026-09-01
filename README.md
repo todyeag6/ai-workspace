@@ -71,8 +71,9 @@ Run each *inside* the container (`docker compose exec -T app php scripts/...`):
 ## Gotchas that used to waste your afternoon (now fixed / understood)
 1. **PHPStan OOMs at the container's default 128M** and prints a fake
    "severe errors" that looks like a code bug. ✅ **Fixed:** `scripts/ci-local.sh`
-   now runs PHPStan with `--memory-limit=1G`. If you run phpstan by hand, always
-   add that flag.
+   now runs PHPStan with `--memory-limit=1G`. The CI workflow
+   (`.github/workflows/ci.yml`) was also fixed (`0d79748`) to pass the same flag.
+   If you run phpstan by hand, always add that flag.
 2. **`.env` was never loaded into the containers.** ✅ **Fixed:** `compose.yaml`
    now has `env_file: .env` (optional, won't break a fresh clone). The hardcoded
    DSNs in `environment:` still win, so nothing else changes.

@@ -76,7 +76,7 @@
   <rect x="24" y="210" width="240" height="290" rx="10" fill="#0b1422" stroke="#3a4a5e"/>
   <text x="40" y="232" class="lbl">Quality Gates</text>
   <text x="40" y="254" class="sub">bash scripts/ci-local.sh</text>
-  <text x="40" y="278" class="sub">1. phpcs (PSR-12)</text>
+  <text x="40" y="278" class="sub">1. phpcs -n (PSR-12, errors only)</text>
   <text x="40" y="296" class="sub">2. phpstan L8 --memory-limit=1G</text>
   <text x="40" y="314" class="sub">3. composer audit</text>
   <text x="40" y="332" class="sub">4. CycloneDX SBOM</text>

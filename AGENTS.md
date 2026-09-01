@@ -25,5 +25,10 @@ audit docs (`AUDIT-REPORT.md`, `docs/`) — trust those over chat summary.
   not be conflated with this stack.
 
 ## Quality gates (run before declaring done)
-- Static: `phpstan` (config `phpstan.neon`), `phpcs` (`phpcs.xml`), `gitleaks` (`.gitleaks.toml`).
+- Static: `phpstan` (config `phpstan.neon`, pass `--memory-limit=1G`), `phpcs`
+  (`phpcs.xml`, pass `-n` for errors-only), `gitleaks` (`.gitleaks.toml`).
 - Tests: `phpunit` (`phpunit.xml`). Migrations in `migrations/`.
+- CI parity: `.github/workflows/ci.yml` runs the same 6 gates on GitHub-hosted
+  runners with `--memory-limit=1G` on phpstan and `-n` on phpcs (parity fix
+  committed `0d79748`). If flags diverge, run `bash scripts/ci-local.sh` for the
+  authoritative local proof.
