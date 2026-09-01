@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `manager_tasks` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `workflow_id` VARCHAR(128) NULL,
+    `agent_id` INT UNSIGNED NULL,
+    `task_type` VARCHAR(64) NOT NULL,
+    `risk` ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'low',
+    `status` ENUM('pending', 'dispatched', 'completed', 'failed', 'blocked', 'escalated') NOT NULL DEFAULT 'pending',
+    `spec_compliance` ENUM('pending', 'pass', 'fail') NOT NULL DEFAULT 'pending',
+    `code_quality` ENUM('pending', 'approved', 'changes_requested') NOT NULL DEFAULT 'pending',
+    `revision_count` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `context` JSON NULL,
+    `result` JSON NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_manager_tasks_tenant` (`tenant_id`),
+    INDEX `idx_manager_tasks_status` (`status`),
+    INDEX `idx_manager_tasks_workflow` (`workflow_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
