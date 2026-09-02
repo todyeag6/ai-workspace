@@ -161,6 +161,38 @@ final class AgentRegistry
     }
 
     /**
+     * Every active agent for this tenant, each enriched with its active
+     * version's purpose, allowed_tools and model_config. Returns an empty
+     * list when no active agents exist.
+     *
+     * @return list<array{id: int, name: string, owner: string, purpose: string, risk_class: string, allowed_tools: list<string>, model_config: array<string, scalar|null>}>
+     */
+    public function listActive(): array
+    {
+        $agents = $this->agents->listActive();
+
+        $enriched = [];
+        foreach ($agents as $agent) {
+            $version = $this->activeVersion((int) $agent['id']);
+            if ($version === null) {
+                continue;
+            }
+
+            $enriched[] = [
+                'id' => (int) $agent['id'],
+                'name' => (string) $agent['name'],
+                'owner' => (string) $agent['owner'],
+                'purpose' => (string) $agent['purpose'],
+                'risk_class' => (string) $agent['risk_class'],
+                'allowed_tools' => $version->allowedTools(),
+                'model_config' => $version->modelConfig(),
+            ];
+        }
+
+        return $enriched;
+    }
+
+    /**
      * @return list<string>
      */
     public function dataClasses(int $agentId): array

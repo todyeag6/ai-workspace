@@ -73,6 +73,16 @@ final class AgentRepository extends TenantRepository
     }
 
     /**
+     * Every active agent for this tenant, in no particular order.
+     *
+     * @return list<array<string, scalar|null>>
+     */
+    public function listActive(): array
+    {
+        return $this->selectScoped('status = :status', ['status' => AgentRegistry::STATUS_ACTIVE]);
+    }
+
+    /**
      * @return int Affected rows: 0 when the agent is outside this tenant, so a
      *         cross-tenant write is refused by the database rather than by an
      *         application check that could be skipped.
