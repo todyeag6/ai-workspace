@@ -12,8 +12,18 @@ final class ManagerTaskTest extends TestCase
     public function testTaskCreation(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'pending', 'pending', 'pending', 0, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: null,
         );
 
         $this->assertSame(1, $task->id());
@@ -24,8 +34,18 @@ final class ManagerTaskTest extends TestCase
     public function testHighRiskRequiresApproval(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'high',
-            'pending', 'pending', 'pending', 0, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'high',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: null,
         );
 
         $this->assertTrue($task->requiresApproval());
@@ -34,8 +54,18 @@ final class ManagerTaskTest extends TestCase
     public function testCanRevise(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'pending', 'pending', 'pending', 2, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 2,
+            context: [],
+            result: null,
         );
 
         $this->assertTrue($task->canRevise());
@@ -44,8 +74,18 @@ final class ManagerTaskTest extends TestCase
     public function testCannotReviseAfterThreeAttempts(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'pending', 'pending', 'pending', 3, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 3,
+            context: [],
+            result: null,
         );
 
         $this->assertFalse($task->canRevise());
@@ -56,16 +96,36 @@ final class ManagerTaskTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         new ManagerTask(
-            1, 1, null, null, 'test', 'invalid',
-            'pending', 'pending', 'pending', 0, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'invalid',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: null,
         );
     }
 
     public function testIsPendingReview(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'completed', 'pending', 'pending', 0, [], ['done'],
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'completed',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: ['status' => 'done'],
         );
 
         $this->assertTrue($task->isPendingReview());
@@ -74,8 +134,18 @@ final class ManagerTaskTest extends TestCase
     public function testIsPendingReviewWhenSpecDoneButQualityPending(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'completed', 'pass', 'pending', 0, [], ['done'],
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'completed',
+            specCompliance: 'pass',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: ['status' => 'done'],
         );
 
         $this->assertTrue($task->isPendingReview());
@@ -84,19 +154,38 @@ final class ManagerTaskTest extends TestCase
     public function testIsNotPendingReviewWhenBothDone(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'completed', 'pass', 'approved', 0, [], ['done'],
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'completed',
+            specCompliance: 'pass',
+            codeQuality: 'approved',
+            revisionCount: 0,
+            context: [],
+            result: ['status' => 'done'],
         );
 
         $this->assertFalse($task->isPendingReview());
     }
 
-
     public function testCriticalRiskRequiresApproval(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'critical',
-            'pending', 'pending', 'pending', 0, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'critical',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: null,
         );
 
         $this->assertTrue($task->requiresApproval());
@@ -105,8 +194,18 @@ final class ManagerTaskTest extends TestCase
     public function testLowRiskDoesNotRequireApproval(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'low',
-            'pending', 'pending', 'pending', 0, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'low',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: null,
         );
 
         $this->assertFalse($task->requiresApproval());
@@ -115,8 +214,18 @@ final class ManagerTaskTest extends TestCase
     public function testMediumRiskDoesNotRequireApproval(): void
     {
         $task = new ManagerTask(
-            1, 1, null, null, 'test', 'medium',
-            'pending', 'pending', 'pending', 0, [], null,
+            id: 1,
+            tenantId: 1,
+            workflowId: null,
+            agentId: null,
+            taskType: 'test',
+            risk: 'medium',
+            status: 'pending',
+            specCompliance: 'pending',
+            codeQuality: 'pending',
+            revisionCount: 0,
+            context: [],
+            result: null,
         );
 
         $this->assertFalse($task->requiresApproval());
