@@ -34,6 +34,12 @@ final class DataRetentionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Clean slate: remove any leads from previous runs that escaped
+        // rollback. DELETE is DML (transactional), unlike TRUNCATE which is
+        // DDL and implicitly commits — see MySQL 8.4 § 15.3.3.
+        $this->pdo->exec('DELETE FROM leads WHERE tenant_id = ' . self::TENANT_ID);
+
         $this->retention = new RetentionService($this->pdo);
     }
 

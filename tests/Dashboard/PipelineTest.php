@@ -20,6 +20,18 @@ use PDO;
  */
 final class PipelineTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Clean slate: remove any data from previous runs that escaped
+        // rollback. DELETE is DML (transactional), unlike TRUNCATE which is
+        // DDL and implicitly commits — see MySQL 8.4 § 15.3.3.
+        $this->pdo->exec('DELETE FROM leads WHERE tenant_id IN (1, 2)');
+        $this->pdo->exec('DELETE FROM lead_ai_analyses WHERE tenant_id IN (1, 2)');
+        $this->pdo->exec('DELETE FROM message_deliveries WHERE tenant_id IN (1, 2)');
+    }
+
     /**
      * LFR-DASH-001 - the pipeline state list, in canonical order.
      *

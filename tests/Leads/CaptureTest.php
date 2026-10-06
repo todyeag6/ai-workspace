@@ -57,6 +57,11 @@ final class CaptureTest extends TestCase
     {
         parent::setUp();
 
+        // Clean slate: remove any leads from previous runs that escaped
+        // rollback. DELETE is DML (transactional), unlike TRUNCATE which is
+        // DDL and implicitly commits — see MySQL 8.4 § 15.3.3.
+        $this->pdo->exec('DELETE FROM leads WHERE tenant_id = ' . self::TENANT_ID);
+
         $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
         $this->bucket = 'pub:leads:' . bin2hex(random_bytes(6));
 
@@ -120,6 +125,44 @@ final class CaptureTest extends TestCase
         }
 
         $this->assertStatus(429, $response, 'LFR-CAP-003: the throttle is fail-closed');
+    }
+
+    // --- Double-submit cookie CSRF tests (OWASP CSRF Cheat Sheet § 3.2) ---
+
+    public function test_double_submit_missing_form_token_rejected(): void
+    {
+        $cookie = \App\Leads\CsrfCookie::generateToken();
+        $this->app = $this->buildApp($cookie);
+
+        $payload = $this->validPayload();
+        // No csrf_token in body — must be rejected
+        $response = $this->app->handle($this->post(self::PATH, $payload));
+
+        $this->assertStatus(403, $response, 'missing form token must be rejected');
+    }
+
+    public function test_double_submit_mismatched_token_rejected(): void
+    {
+        $cookie = \App\Leads\CsrfCookie::generateToken();
+        $form = \App\Leads\CsrfCookie::generateToken();
+        $this->app = $this->buildApp($cookie);
+
+        $payload = $this->payloadWith(['csrf_token' => $form]);
+        $response = $this->app->handle($this->post(self::PATH, $payload));
+
+        $this->assertStatus(403, $response, 'mismatched token must be rejected');
+    }
+
+    public function test_double_submit_matching_token_accepted(): void
+    {
+        $token = \App\Leads\CsrfCookie::generateToken();
+        $this->app = $this->buildApp($token);
+
+        $payload = $this->payloadWith(['csrf_token' => $token]);
+        $response = $this->app->handle($this->post(self::PATH, $payload));
+
+        $this->assertStatus(202, $response, 'matching double-submit token must be accepted');
+        $this->assertSame(1, $this->countLeads(), 'valid capture with CSRF token persists');
     }
 
     /**
@@ -201,7 +244,7 @@ final class CaptureTest extends TestCase
         $this->app = $this->buildApp();
     }
 
-    private function buildApp(): LeadController
+    private function buildApp(?string $csrfCookieToken = null): LeadController
     {
         $service = new LeadService(
             $this->pdo,
@@ -209,7 +252,7 @@ final class CaptureTest extends TestCase
             $this->analyzer
         );
 
-        return new LeadController($service, self::TENANT_ID, 'test-ip-hash-secret');
+        return new LeadController($service, self::TENANT_ID, 'test-ip-hash-secret', null, null, $csrfCookieToken);
     }
 
     private function countLeads(): int

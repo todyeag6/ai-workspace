@@ -66,6 +66,11 @@ final class AnalysisRoutingTest extends TestCase
     {
         parent::setUp();
 
+        // Clean slate: remove any leads from previous runs that escaped
+        // rollback. DELETE is DML (transactional), unlike TRUNCATE which is
+        // DDL and implicitly commits — see MySQL 8.4 § 15.3.3.
+        $this->pdo->exec('DELETE FROM leads WHERE tenant_id = ' . self::TENANT_ID);
+
         $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
         $this->bucket = 'pub:leads:analysis:' . bin2hex(random_bytes(6));
 
