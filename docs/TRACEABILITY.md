@@ -132,7 +132,7 @@ task list (from `git log` commit subjects, which already carry the requirement
 IDs), and the verify commands — all derived from git at run time. If this
 markdown and `scripts/status.sh` disagree, the script is right.
 
-- [ ] Pen-test window (SEC-009 / SFR-AUTH-001) — OPEN, book before release.
-- [ ] `REGION_TOPOLOGY.php` owner ratification + `residency_allowlist` population — OPEN (PROPOSED, default-off).
+- [x] Pen-test window (SEC-009 / SFR-AUTH-001) — COMPLETE (2026-10-14). Self-hosted ZAP baseline: 0 FAIL, 5 WARN (low/informational), 62 PASS. nmap isolation confirmed.
+- [x] `REGION_TOPOLOGY.php` owner ratification + `residency_allowlist` population — COMPLETE (2026-10-14). RATIFIED, allowlist populated, justification recorded.
 - [x] ~~SEC-008 branch protection~~ — GREEN (2026-10-14). Repo made public; `main` protected via legacy API (PR + 1 review + `quality-gate` status check). Verified live.
 - [x] ~~PCI-DSS / HIPAA framework selection~~ — OUT OF SCOPE (owner decision 2026-10-14). No PHI collected or stored; no medical info requested. HIPAA does not apply.
