@@ -68,6 +68,56 @@ final class RbacPolicyTest extends TestCase
         );
     }
 
+    /**
+     * The agent console's own capability codes (migration 024). The console is
+     * gated on `agent.console.view` to see the registry and `agent.invoke` to
+     * run an agent; until these exist in the permission catalogue, RbacPolicy
+     * denies every console request and the surface is unreachable.
+     */
+    public function test_admin_holds_both_agent_console_capabilities(): void
+    {
+        $subject = $this->subject($this->seedUser('admin'));
+
+        self::assertTrue(
+            $this->policy()->permits($subject, 'agent.console.view'),
+            'admin must be able to see the agent console'
+        );
+        self::assertTrue(
+            $this->policy()->permits($subject, 'agent.invoke'),
+            'admin must be able to invoke a registered agent'
+        );
+    }
+
+    public function test_manager_holds_both_agent_console_capabilities(): void
+    {
+        $subject = $this->subject($this->seedUser('manager'));
+
+        self::assertTrue($this->policy()->permits($subject, 'agent.console.view'));
+        self::assertTrue($this->policy()->permits($subject, 'agent.invoke'));
+    }
+
+    public function test_staff_can_view_the_console_but_must_not_invoke(): void
+    {
+        $subject = $this->subject($this->seedUser('staff'));
+
+        self::assertTrue(
+            $this->policy()->permits($subject, 'agent.console.view'),
+            'staff may look at the registry'
+        );
+        self::assertFalse(
+            $this->policy()->permits($subject, 'agent.invoke'),
+            'running an agent is not a read-only action - staff must not hold it'
+        );
+    }
+
+    public function test_viewer_holds_neither_agent_console_capability(): void
+    {
+        $subject = $this->subject($this->seedUser('viewer'));
+
+        self::assertFalse($this->policy()->permits($subject, 'agent.console.view'));
+        self::assertFalse($this->policy()->permits($subject, 'agent.invoke'));
+    }
+
     private function policy(): RbacPolicy
     {
         return new RbacPolicy($this->pdo);
