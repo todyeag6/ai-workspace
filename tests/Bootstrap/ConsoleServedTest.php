@@ -88,11 +88,33 @@ final class ConsoleServedTest extends TestCase
     /** @var list<int> */
     private array $committedAgentIds = [];
 
+    /**
+     * The highest audit_log id present before this test ran.
+     *
+     * The served process writes REAL audit rows (auth.login, authz.deny,
+     * agent.invoke) through its own connection, so they commit and survive the
+     * base class's rollback. Leaving them behind inflates every other test that
+     * COUNTS audit rows - TenantAuthMiddlewareTest asserts exact counts and went
+     * red by 6 when this was missing, which looks like a broken middleware
+     * rather than leaked test data. Everything above this watermark is ours.
+     */
+    private int $auditHighWaterMark = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->redis = $this->redisClient();
+
+        // Record the audit watermark BEFORE the server can write anything, so
+        // tearDown can delete exactly the rows this test caused. Read on the
+        // committing connection, since the served process writes outside the
+        // base class's transaction.
+        $watermark = $this->fixtureConnection()->query('SELECT COALESCE(MAX(id), 0) FROM audit_log');
+        if ($watermark === false) {
+            throw new RuntimeException('Unable to read the audit_log watermark.');
+        }
+        $this->auditHighWaterMark = (int) $watermark->fetchColumn();
 
         $this->port = $this->freePort();
 
@@ -185,6 +207,19 @@ final class ConsoleServedTest extends TestCase
         // Drain the server's pipes before closing them, so a large response
         // cannot have left the process blocked on a full pipe buffer.
         $this->serverLog();
+
+        // Delete the audit rows the served process committed. Without this they
+        // survive the base class's rollback and inflate every later test that
+        // counts audit rows (TenantAuthMiddlewareTest asserts exact counts).
+        //
+        // Unconditional, including at watermark 0: an empty audit_log means
+        // MAX(id) is 0, and `id > 0` still deletes exactly the rows this test
+        // caused. Guarding on `> 0` would silently skip cleanup in precisely the
+        // case where every row present is ours.
+        $this->fixtureConnection()->exec(
+            'DELETE FROM audit_log WHERE id > ' . $this->auditHighWaterMark
+        );
+        $this->auditHighWaterMark = 0;
 
         // Remove exactly the committed fixtures this test created. Scoped by id,
         // so a concurrent run's rows (or the base class's own rolled-back
