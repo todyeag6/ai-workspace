@@ -1,0 +1,191 @@
+/*
+ * AI WebScapes operations console stylesheet.
+ *
+ * Served as a separate same-origin asset so the Content-Security-Policy can
+ * stay at style-src 'self'. The dashboard carried an inline <style> block,
+ * which forced style-src 'unsafe-inline' - the weakest style policy available
+ * and the finding the SEC-009 pen-test raised. Nothing here may be inlined
+ * into a view for the same reason.
+ *
+ * The accessibility rules the A11Y-001..006 checks depend on live here:
+ *   - A11Y-002 focus-visible: a keyboard user must be able to see focus.
+ *   - A11Y-004 contrast: >= 4.5:1 for body text on its background.
+ *   - reduced-motion: honour prefers-reduced-motion for any transition.
+ *
+ * © AI WebScapes 2026
+ */
+
+:root {
+  --bg: #ffffff;
+  --fg: #1b1b1b;
+  --muted: #55595f;
+  --border: #c8ccd2;
+  --accent: #0b4f9e;
+  --focus: #b8007a;
+  --error: #a1121b;
+  --notice-bg: #eef4fc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  max-width: 60rem;
+}
+
+/* A11Y-002: visible focus for keyboard users, on every interactive element. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Skip link: off-screen until focused, then visible at the top-left. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  padding: 0.6rem 1rem;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.skip-link:focus {
+  left: 0;
+  z-index: 10;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+  margin: 1.75rem 0 0.5rem;
+}
+
+.role-badge,
+.field-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+caption {
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding-bottom: 0.4rem;
+}
+
+th,
+td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f2f4f7;
+}
+
+/* A11Y-004: status is symbol + text, never colour alone. The colour below is a
+   redundant reinforcement, not the carrier of meaning. */
+.status-icon {
+  margin-right: 0.4rem;
+  font-size: 0.85em;
+}
+
+.status-label {
+  text-transform: capitalize;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 28rem;
+}
+
+button {
+  font: inherit;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* A11Y-003: an error is text, not a red border alone. */
+.field-error {
+  color: var(--error);
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+}
+
+.notice {
+  background: var(--notice-bg);
+  border-left: 4px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+}
+
+.empty-state {
+  color: var(--muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+footer {
+  margin-top: 2.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
