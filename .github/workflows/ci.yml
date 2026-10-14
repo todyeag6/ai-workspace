@@ -91,12 +91,12 @@ jobs:
 
       - name: Wait for MySQL to be healthy
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 90); do
             if mysqladmin ping -h db -P 3306 -uroot -proot --silent 2>/dev/null; then
               echo "MySQL is ready."
               exit 0
             fi
-            echo "Waiting for MySQL... ($i/30)"
+            echo "Waiting for MySQL... ($i/90)"
             sleep 2
           done
           echo "MySQL did not become ready in time."
