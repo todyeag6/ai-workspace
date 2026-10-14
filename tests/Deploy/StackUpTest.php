@@ -20,6 +20,9 @@ final class StackUpTest extends TestCase
     #[Test]
     public function test_dry_run_selects_small_profile(): void
     {
+        if (!is_file(self::SCRIPT)) {
+            self::markTestSkipped('stack-up.sh not present in this environment.');
+        }
         $out = shell_exec("bash " . escapeshellarg(self::SCRIPT) . " --dry-run --size small 2>&1");
         self::assertIsString($out);
         self::assertStringContainsString('SIZE=small', $out);
@@ -29,6 +32,9 @@ final class StackUpTest extends TestCase
     #[Test]
     public function test_default_size_is_medium_when_unset(): void
     {
+        if (!is_file(self::SCRIPT)) {
+            self::markTestSkipped('stack-up.sh not present in this environment.');
+        }
         $out = shell_exec("bash " . escapeshellarg(self::SCRIPT) . " --dry-run 2>&1");
         self::assertIsString($out);
         self::assertStringContainsString('SIZE=medium', $out);
@@ -37,6 +43,9 @@ final class StackUpTest extends TestCase
     #[Test]
     public function test_unknown_size_is_rejected(): void
     {
+        if (!is_file(self::SCRIPT)) {
+            self::markTestSkipped('stack-up.sh not present in this environment.');
+        }
         $out = shell_exec("bash " . escapeshellarg(self::SCRIPT) . " --dry-run --size spaceship 2>&1");
         self::assertIsString($out);
         self::assertStringContainsString('INVALID_SIZE', $out);
