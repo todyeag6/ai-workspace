@@ -55,7 +55,7 @@ final class LoginControllerTest extends TestCase
     {
         parent::setUp();
 
-        $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
+        $this->redis = $this->redisClient();
     }
 
     protected function tearDown(): void

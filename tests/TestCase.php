@@ -126,6 +126,28 @@ abstract class TestCase extends Base
     }
 
     /**
+     * A Redis client whose connection comes from the environment.
+     *
+     * REDIS_DSN is parsed with parse_url so both local dev (tcp://redis:6379)
+     * and CI (tcp://127.0.0.1:6379) work without code changes.
+     */
+    protected function redisClient(): \Predis\Client
+    {
+        $dsn = getenv('REDIS_DSN');
+        $params = $dsn !== false && $dsn !== ''
+            ? parse_url($dsn)
+            : [];
+
+        $host = $params['host'] ?? 'redis';
+        $port = $params['port'] ?? 6379;
+
+        return new \Predis\Client([
+            'host' => $host,
+            'port' => (int) $port,
+        ]);
+    }
+
+    /**
      * Applies every migrations/*.sql file in deterministic filename order.
      *
      * Runs outside any transaction: MySQL implicitly commits on DDL, so

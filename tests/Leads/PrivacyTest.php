@@ -59,7 +59,7 @@ final class PrivacyTest extends TestCase
     {
         parent::setUp();
 
-        $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
+        $this->redis = $this->redisClient();
         $this->bucket = 'pub:leads:privacy:' . bin2hex(random_bytes(6));
 
         $this->service = new LeadService(

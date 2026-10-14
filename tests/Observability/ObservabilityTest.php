@@ -30,7 +30,7 @@ final class ObservabilityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
+        $this->redis = $this->redisClient();
     }
 
     public function test_health_reports_dependencies(): void

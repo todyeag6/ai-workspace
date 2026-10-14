@@ -79,7 +79,11 @@ final class BackupRestoreTest extends TestCase
      */
     private static function serverConnection(): PDO
     {
-        return new PDO('mysql:host=db;charset=utf8mb4', 'root', 'root', [
+        $dsn = self::testDsn();
+        if (preg_match('/host=([^;]+)/', $dsn, $matches) !== 1) {
+            throw new RuntimeException('TEST_DB_DSN does not name a host.');
+        }
+        return new PDO('mysql:host=' . $matches[1] . ';charset=utf8mb4', 'root', 'root', [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);

@@ -37,7 +37,7 @@ final class OrchestratorTest extends TestCase
     {
         parent::setUp();
 
-        $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
+        $this->redis = $this->redisClient();
         $this->namespace = 'test:orch:' . bin2hex(random_bytes(8));
         $this->external = new RecordingEffector();
     }

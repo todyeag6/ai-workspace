@@ -38,7 +38,23 @@ final class RateLimiterTest extends TestCase
     {
         parent::setUp();
 
-        $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
+        $this->redis = $this->redisClient();
+    }
+
+    private function redisClient(): Client
+    {
+        $dsn = getenv('REDIS_DSN');
+        $params = $dsn !== false && $dsn !== ''
+            ? parse_url($dsn)
+            : [];
+
+        $host = $params['host'] ?? 'redis';
+        $port = $params['port'] ?? 6379;
+
+        return new Client([
+            'host' => $host,
+            'port' => (int) $port,
+        ]);
     }
 
     protected function tearDown(): void

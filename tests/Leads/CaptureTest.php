@@ -62,7 +62,7 @@ final class CaptureTest extends TestCase
         // DDL and implicitly commits — see MySQL 8.4 § 15.3.3.
         $this->pdo->exec('DELETE FROM leads WHERE tenant_id = ' . self::TENANT_ID);
 
-        $this->redis = new Client(['host' => 'redis', 'port' => 6379]);
+        $this->redis = $this->redisClient();
         $this->bucket = 'pub:leads:' . bin2hex(random_bytes(6));
 
         $this->app = $this->buildApp();
