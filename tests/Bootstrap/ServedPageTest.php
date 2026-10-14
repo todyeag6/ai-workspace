@@ -66,14 +66,13 @@ final class ServedPageTest extends TestCase
             self::DOCROOT . '/index.php',
         ];
 
-        $server = proc_open(
+        $server = @proc_open(
             $command,
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $this->pipes,
             self::DOCROOT,
             $env
         );
-
         if (!is_resource($server)) {
             self::markTestSkipped('php -S could not start in this environment.');
         }
@@ -265,7 +264,7 @@ final class ServedPageTest extends TestCase
         $env['APP_KEY'] = 'served-page-test-ip-hash-secret';
 
         $command = [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', self::DOCROOT, self::DOCROOT . '/index.php'];
-        $server = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, self::DOCROOT, $env);
+        $server = @proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, self::DOCROOT, $env);
         if (!is_resource($server)) {
             self::markTestSkipped('php -S could not start in this environment.');
         }

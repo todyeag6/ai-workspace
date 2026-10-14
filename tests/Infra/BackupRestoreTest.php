@@ -226,6 +226,9 @@ final class BackupRestoreTest extends TestCase
      */
     private static function ensureDatabase(): void
     {
+        if (!is_dir('/app/backups')) {
+            mkdir('/app/backups', 0777, true);
+        }
         self::serverConnection()->exec(
             'CREATE DATABASE IF NOT EXISTS ' . self::drillDatabase()
             . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
