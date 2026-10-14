@@ -25,14 +25,16 @@ marked **[PLANNED]** and carry a forward-looking threat surface only.
 | Component | Trust boundary | State today | Notes |
 |---|---|---|---|
 | **Public Intake** | Anonymous internet → app | **Built** | `legacy/api/demo-request.php` (POST, CSRF, honeypot, Redis rate limit) |
-| **Identity & Access** | Authenticated user → app | **Built** (partial) | `legacy/includes/auth.php`, `csrf.php`, `security.php`; no MFA yet |
-| **Tenant Data** | App → MySQL (`db`) | **Built** (single-tenant today) | `demo_requests`, `users` (`migrations/000_baseline.sql`); multi-tenancy is Phase 1 |
+| **Operator Console** | Authenticated operator → app | **Built** | `public/index.php` → `App\Console\*`. `TenantAuthMiddleware` runs BEFORE any controller is constructed; tenant comes from the server-side session, never the request (AC-001). Refusals are 403 with a distinct reason per cause, and audit every denial. See `docs/adr/0003-authenticated-operator-console.md`. |
+| **Demo Dashboard** | Anonymous internet → app | **Built — UNGATED** | `/dashboard` serves lead-pipeline counts with no session. Pre-existing; gating it was out of scope and would break shipped tests. Recorded as an open finding in ADR-0003 §3.1 — must be decided before any reachable deployment. |
+| **Identity & Access** | Authenticated user → app | **Built** (partial) | `src/Identity/*` (argon2id, lockout, Redis sessions), `src/Security/TenantAuthMiddleware`, `RbacPolicy`. **No MFA challenge** — `mfa_secret` is stored and carried but never verified; deferred with a reversal condition in ADR-0003 §2.4. |
+| **Tenant Data** | App → MySQL (`db`) | **Built** | `src/Data/TenantRepository` makes an unscoped statement inexpressible (AC-001); enforced repo-wide by `build/phpstan/NoUnscopedClientQueryRule.php` |
 | **Secrets / Config** | Env → app bootstrap | **Built** | `src/Config/Secrets.php` (fail-closed) |
 | **Rate Limiting** | Shared Redis (`redis`) | **Built** | `src/Security/RateLimiter.php` (LFR-CAP-003) |
 | **Migrations / Backup** | App → MySQL + files | **Built** | `scripts/migrate.php`, `backup.php`, `restore.php`; `tests/Infra/BackupRestoreTest.php` |
-| **AI Gateway** `[PLANNED]` | App → Ollama (`host.docker.internal:11434`) | Not built | `compose.yaml` `AI_LOCAL_BASE_URL`; FR-AI-001 abstraction |
-| **Tool Egress** `[PLANNED]` | Security Agent → external tools | Not built | Phase 1+ autonomous agent domain |
-| **Security Agent** `[PLANNED]` | Agent → tools / data | Not built | `security_assets` / `scans` / `findings` / `evidence` / `remediations` tables planned |
+| **AI Gateway** | App → Ollama (`host.docker.internal:11434`) | **Built** | `src/AI/*`. Budget checked before the adapter is touched; invalid output returns `disposition='review'` with no payload (AC-003); the gateway holds no effectful collaborator by construction. |
+| **Tool Egress** | Agent → allow-listed tools | **Built** | `src/Tools/ToolGateway.php` (AC-002 allowlist). No arbitrary URL/code/path/command. |
+| **Security Agent** | Agent → tools / data | **Built** | `src/SecurityAgent/*` (scanners, findings, evidenced remediation) |
 
 ---
 

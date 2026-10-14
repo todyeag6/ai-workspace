@@ -136,3 +136,28 @@ markdown and `scripts/status.sh` disagree, the script is right.
 - [x] `REGION_TOPOLOGY.php` owner ratification + `residency_allowlist` population — COMPLETE (2026-10-14). RATIFIED, allowlist populated, justification recorded.
 - [x] ~~SEC-008 branch protection~~ — GREEN (2026-10-14). Repo made public; `main` protected via legacy API (PR + 1 review + `quality-gate` status check). Verified live.
 - [x] ~~PCI-DSS / HIPAA framework selection~~ — OUT OF SCOPE (owner decision 2026-10-14). No PHI collected or stored; no medical info requested. HIPAA does not apply.
+
+## Authenticated operator console (ADR-0003)
+
+A requirement is not done until a **named test** passes; the tests below are the
+evidence, not the plan's task list.
+
+| Requirement | Implementation | Test |
+|---|---|---|
+| FR-AGENT-001 (agent register is answerable) | `src/Agents/AgentRegistry.php` | `tests/Agents/AgentRegistryTest.php` |
+| FR-AGENT-002 (disabled by default; activation gated) | `src/Agents/AgentRegistry::activate()` | `tests/Agents/AgentRegistryTest.php` |
+| `agent.console.view` / `agent.invoke` capability codes | `migrations/024_agent_console_permissions.sql` | `tests/Security/RbacPolicyTest::test_admin_holds_both_agent_console_capabilities`, `::test_staff_can_view_the_console_but_must_not_invoke`, `::test_viewer_holds_neither_agent_console_capability` |
+| FR-IDENT-001/002 (credential auth, argon2id, no enumeration) | `src/Identity/LoginController.php`, `AuthService` | `tests/Identity/LoginControllerTest::test_unknown_account_wrong_password_and_locked_account_are_indistinguishable` |
+| FR-IDENT-003 (server-side session, cookie-only exchange) | `src/Identity/SessionStore.php`, `LoginController::sessionCookie()` | `tests/Identity/LoginControllerTest::test_a_session_cookie_is_set_on_success`, `::test_the_secure_flag_is_set_when_the_request_is_https` |
+| FR-IDENT-004 (server-side revocation on logout) | `LoginController::logout()` | `tests/Identity/LoginControllerTest::test_the_session_id_is_dead_server_side_after_logout`, `::test_a_revoked_session_is_denied_by_the_auth_middleware` |
+| AC-001 (no cross-tenant read, incl. object-level) | `src/Agents/AgentResourceLocator.php`, `src/Data/TenantRepository.php` | `tests/Agents/AgentResourceLocatorTest::test_a_foreign_agent_and_a_missing_agent_are_indistinguishable`, `tests/Console/AgentConsoleControllerTest::test_another_tenants_agent_is_absent_from_the_list`, `tests/Bootstrap/ConsoleServedTest::test_the_console_shows_only_the_sessions_tenant` |
+| AC-002 (tool allowlist) | `src/Tools/ToolGateway.php` | `tests/Tools/ToolGatewayTest.php` |
+| AC-003 (invalid model output has no side effect) | `src/AI/AIGateway.php` | `tests/AI/AIGatewayTest.php`; `src/AI/SchemaValidator.php` covered by `tests/AI/SchemaValidatorTest.php` |
+| FR-AUD-001 (denials and successes are audited) | `src/Audit/AuditLog.php`, `AgentInvocationController` | `tests/Console/AgentInvocationControllerTest::test_a_successful_invocation_is_audited` |
+| Gated surface refuses without a session | `public/index.php` | `tests/Bootstrap/ConsoleServedTest::test_console_is_refused_without_a_session` |
+| SEC-004/009 (headers on every branch, incl. 403) | `src/Bootstrap/SecurityHeaders.php` | `tests/Bootstrap/ConsoleServedTest::test_the_console_403_carries_the_full_security_header_set` |
+| A11Y-001..006 + WCAG 2.2 SC 3.3.8 (login form) | `src/Console/AgentConsoleView.php`, `public/assets/console.css` | `tests/Console/AgentConsoleViewTest.php` (incl. `::test_login_form_allows_password_manager_autofill`, `::test_no_inline_style_or_script_is_emitted`) |
+| Operator provisioning | `scripts/create-operator.php` | `tests/Infra/CreateOperatorTest.php` |
+
+**Open, deliberately:** MFA enforcement (ADR-0003 §2.4, card `t_e2a46492`) and the
+ungated `/dashboard` surface (ADR-0003 §3.1). Neither is marked complete.

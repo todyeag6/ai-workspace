@@ -11,7 +11,16 @@ tree. Counts are `.php` files (src = logic, tests = verification).
 ## 1. Served surface
 | Path | File | Purpose |
 |---|---|---|
-| `/dashboard` (demo) | `public/index.php` | Hardened front controller → `App\Dashboard\DashboardController`. Tenant fixed server-side (AC-001). Not the production entrypoint. |
+| `/login`, `/logout` | `public/index.php` | Operator sign-in and server-side session revocation (FR-IDENT-001/003/004). Public. |
+| `/console` | `public/index.php` → `App\Console\AgentConsoleController` | The tenant's registered agents. **Gated**: requires `agent.console.view`, session-resolved tenant (AC-001). |
+| `/console/invoke` | `public/index.php` → `App\Console\AgentInvocationController` | Runs a registered agent. **Gated**: requires `agent.invoke` + CSRF + object check. |
+| `/api/v1/public/leads` | `public/index.php` → `App\Leads\LeadController` | Public lead capture (unchanged). |
+| `/dashboard` (demo) | `public/index.php` | Hardened front controller → `App\Dashboard\DashboardController`. Tenant fixed server-side (AC-001). **Unauthenticated** — see `docs/adr/0003-authenticated-operator-console.md` §3.1, which records this as an open finding rather than an oversight. |
+| `/assets/*` | `public/assets/` | Static stylesheets, served same-origin so the CSP stays at `style-src 'self'`. |
+
+Authorization for the gated routes runs through `App\Security\TenantAuthMiddleware`
+**before** the controller is constructed, so an unauthorised request never reaches
+code that reads tenant data.
 
 ## 2. Source domains (`src/`) — 25 domains
 Format: `Domain | src files | test files`
