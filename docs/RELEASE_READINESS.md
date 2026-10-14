@@ -64,7 +64,7 @@ These change the audit verdict: the platform is **shippable-after-pen-test**, wi
 
 1. **Penetration test (SEC-009 / BR-12.5)** — schedule + retest before final shipment. CRITICAL release gate.
 2. **`REGION_TOPOLOGY.php`** — PROPOSED + default-off. Ratify and populate `residency_allowlist`; engine already enforces deny-by-default.
-3. **PCI-DSS / HIPAA framework selection** — `ControlMapping` engine is generic and refuses unknown frameworks (`tests/Compliance/ControlMappingTest.php`); add mappings per newest official revisions when in scope.
+3. ~~**PCI-DSS / HIPAA framework selection**~~ — OUT OF SCOPE (owner decision 2026-10-14). The platform does not collect or store any patient health information and does not ask for medical info. HIPAA does not apply. PCI-DSS is a separate question (payment card data) — not currently in scope.
 4. **SEC-008 branch protection** — RESOLVED 2026-10-14. Repo made public; branch protection enabled on `main` via legacy API (PR + 1 review + `quality-gate` status check). Verified live. See `docs/CI_AND_BRANCH_PROTECTION.md`.
 
 ## Program scope note

@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Aiwebscapes platform is **shippable-after-pen-test**. All code, tests, and quality gates are green. Three owner-gated release items remain before final shipment (down from four: SEC-008 branch protection is now GREEN). The platform satisfies BRD §16 Phases 1–5 in-repo; Phase 5 items (multi-region, PCI/HIPAA) are deferred with engine-enforced deny-by-default posture.
+The Aiwebscapes platform is **shippable-after-pen-test**. All code, tests, and quality gates are green. Two owner-gated release items remain before final shipment (down from four: SEC-008 branch protection is now GREEN, and PCI-DSS/HIPAA is OUT OF SCOPE per owner decision 2026-10-14 — no PHI collected or stored). The platform satisfies BRD §16 Phases 1–5 in-repo; the multi-region item is deferred with engine-enforced deny-by-default posture.
 
 ---
 
@@ -56,7 +56,7 @@ Requirement IDs by document (extracted from the 7 docx baselines):
 |---|------|------|-----------------|
 | 1 | **SEC-009 / BR-12.5** — External penetration testing | 🔴 CRITICAL | Schedule authorized pen-test against release candidate; remediate zero critical findings; retest before shipment |
 | 2 | **`REGION_TOPOLOGY.php`** — Multi-region topology + residency validator | 🟡 PROPOSED + default-off | Owner must: (1) flip `STATUS` → `RATIFIED`, (2) populate `residency_allowlist` with approved regions, (3) record data-residency justification. Deny-by-default engine already enforced. |
-| 3 | **PCI-DSS / HIPAA framework selection** | 🟡 New task | `ControlMapping` engine is generic and refuses unknown frameworks. Add PCI-DSS / HIPAA mappings from newest official revisions as a new task. |
+| 3 | ~~**PCI-DSS / HIPAA framework selection**~~ | ⚪ OUT OF SCOPE | Owner decision (2026-10-14): the platform does NOT collect or store any patient health information and does not ask for medical info. HIPAA does not apply. PCI-DSS is a separate question (payment card data) — not currently in scope. |
 | 4 | **SEC-008** — Branch protection | ✅ GREEN | Repo made public (2026-10-14); branch protection enabled on `main` via legacy API — PR + 1 review + `quality-gate` status check required; force-push and deletion blocked. Verified live via `GET .../branches/main/protection`. |
 
 ---
