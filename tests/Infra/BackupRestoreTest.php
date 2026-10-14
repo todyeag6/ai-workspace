@@ -213,7 +213,7 @@ final class BackupRestoreTest extends TestCase
      */
     private static function dumpPath(): string
     {
-        return sprintf('/app/backups/%s-drill.sql.gz', self::drillDatabase());
+        return sprintf('%s/%s-drill.sql.gz', sys_get_temp_dir(), self::drillDatabase());
     }
 
     /**
@@ -226,9 +226,6 @@ final class BackupRestoreTest extends TestCase
      */
     private static function ensureDatabase(): void
     {
-        if (!is_dir('/app/backups')) {
-            mkdir('/app/backups', 0777, true);
-        }
         self::serverConnection()->exec(
             'CREATE DATABASE IF NOT EXISTS ' . self::drillDatabase()
             . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
