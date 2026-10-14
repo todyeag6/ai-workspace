@@ -39,11 +39,10 @@ jobs:
       # service-label -> hostname mapping (official docs: "the hostname of the
       # service container is the label you configure"). No /etc/hosts hack.
       db:
-        image: mysql:8
+        image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: aiwebscapes
-          MYSQL_TCP_PORT: '3306'
         ports:
           - 3306:3306
         options: >-
