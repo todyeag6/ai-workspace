@@ -16,6 +16,28 @@ use PHPUnit\Framework\Attributes\Test;
  */
 final class MultiRegionTopologyTest extends TestCase
 {
+    private const POLICY_PATH = __DIR__ . '/../../config/deploy/REGION_TOPOLOGY.php';
+
+    #[Test]
+    public function test_policy_file_is_ratified_by_owner(): void
+    {
+        self::assertFileExists(self::POLICY_PATH, 'REGION_TOPOLOGY policy must exist.');
+        $policy = require self::POLICY_PATH;
+        self::assertSame('RATIFIED', $policy['status'], 'Owner ratified multi-region on 2026-10-14.');
+        self::assertStringContainsString('2026-10-14', $policy['config_version']);
+        self::assertNotEmpty($policy['data_residency_justification']);
+    }
+
+    #[Test]
+    public function test_policy_residency_allowlist_contains_approved_regions(): void
+    {
+        $policy = require self::POLICY_PATH;
+        $allowlist = $policy['default']['residency_allowlist'];
+        self::assertContains('us-east', $allowlist);
+        self::assertContains('us-west', $allowlist);
+        self::assertContains('eu-west', $allowlist);
+    }
+
     #[Test]
     public function test_default_is_single_region_and_disabled(): void
     {
