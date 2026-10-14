@@ -30,7 +30,7 @@ re-run per commit; verify live rather than trusting this snapshot.
 | 8 | Static / dependency / secret / config scans pass | GREEN | phpstan L8 `[OK] No errors`; phpcs clean; CI secret + dependency scan + SBOM (P2 CI hardening, SEC-007/008). |
 | 9 | Penetration testing completed; critical findings zero; unresolved high findings explicitly accepted | AMBER | Engine + automated security tests present, but the **external pen-test (SEC-009 / BR-12.5) is NOT yet scheduled** — owner must book + retest before final shipment. Hard release gate. |
 | 10 | Backup and rollback tested | GREEN | FR-DEP-001 proven backup/restore drill (`faa4b25`). FR-DEP-002 release metadata is enforced by a dedicated `ReleaseRecord` value object (`tests/Deploy/ReleaseRecordTest.php`). |
-| 11 | Runbooks, training, inventory, release notes, support ownership complete | AMBER | `HARDWARE_SIZING` + `REMOTE_SUPPORT_POLICY` RATIFIED; **SEC-008 branch protection BLOCKED by GitHub Free tier** (see `docs/CI_AND_BRANCH_PROTECTION.md`). |
+| 11 | Runbooks, training, inventory, release notes, support ownership complete | GREEN | `HARDWARE_SIZING` + `REMOTE_SUPPORT_POLICY` RATIFIED; **SEC-008 branch protection ENABLED on `main`** (2026-10-14, repo made public; see `docs/CI_AND_BRANCH_PROTECTION.md`). |
 | 12 | Client acceptance criteria satisfied | GREEN (internal) | All §11 AC implemented + tested; final client sign-off is a commercial step, not a code gate. |
 
 ---
@@ -65,7 +65,7 @@ These change the audit verdict: the platform is **shippable-after-pen-test**, wi
 1. **Penetration test (SEC-009 / BR-12.5)** — schedule + retest before final shipment. CRITICAL release gate.
 2. **`REGION_TOPOLOGY.php`** — PROPOSED + default-off. Ratify and populate `residency_allowlist`; engine already enforces deny-by-default.
 3. **PCI-DSS / HIPAA framework selection** — `ControlMapping` engine is generic and refuses unknown frameworks (`tests/Compliance/ControlMappingTest.php`); add mappings per newest official revisions when in scope.
-4. **SEC-008 branch protection** — blocked by GitHub Free tier (documented in `docs/CI_AND_BRANCH_PROTECTION.md`).
+4. **SEC-008 branch protection** — RESOLVED 2026-10-14. Repo made public; branch protection enabled on `main` via legacy API (PR + 1 review + `quality-gate` status check). Verified live. See `docs/CI_AND_BRANCH_PROTECTION.md`.
 
 ## Program scope note
 The BRD (§16) defines exactly **five** phases; no Phase 6 exists in the baseline.

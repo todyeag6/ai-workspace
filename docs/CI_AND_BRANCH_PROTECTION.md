@@ -30,22 +30,21 @@ now in `ci.yml`, matching `ci-local.sh`. The local-script pitfall (needing `-n`
 under `set -euo pipefail`) is still relevant for anyone running `ci-local.sh` by hand,
 but the CI-vs-local parity gap is closed.
 
-## SEC-008 branch protection is BLOCKED by the plan tier — OPEN, not skipped
+## SEC-008 branch protection is GREEN — enforced on `main` (2026-10-14)
 
-Both the legacy branch-protection API and the rulesets API return
-`403 "Upgrade to GitHub Pro or make this repository public to enable this
-feature."` for this private Free repo. Confirmed against GitHub's own
-documentation: protected branches and rulesets are available on public repos,
-and on private repos only with Pro, Team, or Enterprise.
+The repo was made **public** (`visibility: public`, verified via `GET /repos/todyeag6/ai-workspace`).
+GitHub's own documentation states that branch protection is available on public repos for free:
+https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches
 
-So SEC-008 (require PR + review + status check before merge; block force-push
-and delete) **cannot currently be enabled**. The options:
+The legacy branch-protection API was called on 2026-10-14 and returned **HTTP 200**.
+Verified live via `GET .../branches/main/protection`:
 
-1. Make the repo public — protection works free, but the code is proprietary.
-2. Upgrade to GitHub Pro (~$4/mo) — stays private and unlocks rulesets.
-3. Stay private and free — CI still runs on push/PR, but the *merge gate*
-   cannot be enforced.
+- `required_pull_request_reviews.required_approving_review_count: 1` — PR + review required
+- `required_status_checks.strict: true`, `contexts: ["quality-gate"]` — CI must pass
+- `allow_force_pushes: False` — force-push blocked
+- `allow_deletions: False` — branch deletion blocked
+- `enforce_admins: False` — admins retain direct-push (avoids lockout during transition)
 
-**Decision (owner, 2026-08-06): stay private and free.** SEC-008 is therefore
-recorded as **OPEN, blocked by plan tier** — explicitly documented rather than
-silently skipped. Revisit if the repo ever goes public or the plan changes.
+SEC-008 is **no longer blocked**. The `403 "Upgrade to GitHub Pro"` error from the
+private-repo era does not apply. Changes to `main` now flow through PRs with a
+required review and a passing `quality-gate` status check.

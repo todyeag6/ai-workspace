@@ -6,11 +6,11 @@
 # `bash scripts/ci-local.sh`, which runs the same six gates against the local
 # Docker compose stack and is what we used while the repo had no remote.
 #
-# SEC-008 branch protection is now ENFORCED on `main` (see the ruleset added
-# 2026-08-06): pull request required (>= 1 approval), status check
-# "quality-gate" must pass, branches kept up to date before merge, force pushes
-# and branch deletion blocked. Direct pushes to main are therefore blocked;
-# changes flow through PRs. This `ci.yml` is the required status check.
+# SEC-008 branch protection is ENFORCED on `main` (enabled 2026-10-14 after
+# the repo was made public): pull request required (>= 1 approval), status
+# check "quality-gate" must pass, branches kept up to date before merge, force
+# pushes and branch deletion blocked. Direct pushes to main are therefore
+# blocked; changes flow through PRs. This `ci.yml` is the required status check.
 
 name: CI
 

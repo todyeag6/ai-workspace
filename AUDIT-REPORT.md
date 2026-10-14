@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Aiwebscapes platform is **shippable-after-pen-test**. All code, tests, and quality gates are green. Four owner-gated release items remain before final shipment. The platform satisfies BRD §16 Phases 1–5 in-repo; Phase 5 items (multi-region, PCI/HIPAA) are deferred with engine-enforced deny-by-default posture.
+The Aiwebscapes platform is **shippable-after-pen-test**. All code, tests, and quality gates are green. Three owner-gated release items remain before final shipment (down from four: SEC-008 branch protection is now GREEN). The platform satisfies BRD §16 Phases 1–5 in-repo; Phase 5 items (multi-region, PCI/HIPAA) are deferred with engine-enforced deny-by-default posture.
 
 ---
 
@@ -45,7 +45,7 @@ Requirement IDs by document (extracted from the 7 docx baselines):
 | 8 | Static / dependency / secret / config scans pass | GREEN | phpstan L8 `[OK]`; phpcs clean; CI secret + dependency scan + SBOM |
 | 9 | Penetration testing completed; critical findings zero; unresolved high findings explicitly accepted | **AMBER** | External pen-test (SEC-009 / BR-12.5) **NOT yet scheduled** — hard release gate |
 | 10 | Backup and rollback tested | GREEN | FR-DEP-001 proven backup/restore drill; FR-DEP-002 release metadata enforced |
-| 11 | Runbooks, training, inventory, release notes, support ownership complete | **AMBER** | `HARDWARE_SIZING` + `REMOTE_SUPPORT_POLICY` RATIFIED; SEC-008 branch protection BLOCKED by GitHub Free tier |
+| 11 | Runbooks, training, inventory, release notes, support ownership complete | GREEN | `HARDWARE_SIZING` + `REMOTE_SUPPORT_POLICY` RATIFIED; SEC-008 branch protection ENABLED on `main` (2026-10-14, repo made public) |
 | 12 | Client acceptance criteria satisfied | GREEN (internal) | All §11 AC implemented + tested; final client sign-off is commercial |
 
 ---
@@ -57,7 +57,7 @@ Requirement IDs by document (extracted from the 7 docx baselines):
 | 1 | **SEC-009 / BR-12.5** — External penetration testing | 🔴 CRITICAL | Schedule authorized pen-test against release candidate; remediate zero critical findings; retest before shipment |
 | 2 | **`REGION_TOPOLOGY.php`** — Multi-region topology + residency validator | 🟡 PROPOSED + default-off | Owner must: (1) flip `STATUS` → `RATIFIED`, (2) populate `residency_allowlist` with approved regions, (3) record data-residency justification. Deny-by-default engine already enforced. |
 | 3 | **PCI-DSS / HIPAA framework selection** | 🟡 New task | `ControlMapping` engine is generic and refuses unknown frameworks. Add PCI-DSS / HIPAA mappings from newest official revisions as a new task. |
-| 4 | **SEC-008** — Branch protection | 🔴 BLOCKED | GitHub Free tier limitation. Documented in `docs/CI_AND_BRANCH_PROTECTION.md`. CI workflow enforces status checks on PRs; full branch protection rules unavailable on Free tier. |
+| 4 | **SEC-008** — Branch protection | ✅ GREEN | Repo made public (2026-10-14); branch protection enabled on `main` via legacy API — PR + 1 review + `quality-gate` status check required; force-push and deletion blocked. Verified live via `GET .../branches/main/protection`. |
 
 ---
 

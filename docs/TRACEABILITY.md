@@ -134,4 +134,4 @@ markdown and `scripts/status.sh` disagree, the script is right.
 
 - [ ] Pen-test window (SEC-009 / SFR-AUTH-001) — OPEN, book before release.
 - [ ] `REGION_TOPOLOGY.php` owner ratification + `residency_allowlist` population — OPEN (PROPOSED, default-off).
-- [ ] SEC-008 branch protection — BLOCKED by GitHub Free tier; documented OPEN, not skipped.
+- [x] SEC-008 branch protection — GREEN (2026-10-14). Repo made public; `main` protected via legacy API (PR + 1 review + `quality-gate` status check). Verified live.
