@@ -89,6 +89,19 @@ jobs:
       - name: Install mysql client (used by the backup/restore drill)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mysql-client
 
+      - name: Wait for MySQL to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h db -P 3306 -uroot -proot --silent 2>/dev/null; then
+              echo "MySQL is ready."
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL did not become ready in time."
+          exit 1
+
       - name: Create the test database
         # `db` is the service-container label (resolves to the MySQL container
         # via GitHub's automatic service-label -> hostname mapping).
