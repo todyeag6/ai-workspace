@@ -29,14 +29,25 @@ use InvalidArgumentException;
  *     ],
  *   ]
  *
- * Types are 'string', 'int', 'float' and 'bool'; a trailing '?' marks a field
- * that may be absent. A nested array is an object schema and recurses.
+ * Types are 'string', 'int', 'float', 'bool' and 'array'; a trailing '?'
+ * marks a field that may be absent. A nested array is an object schema and
+ * recurses.
  *
- * UNKNOWN KEYS ARE REJECTED, not ignored. A model that invents a field has
- * misunderstood its instructions, and the cheap failure is a review queue
- * entry - not downstream code that silently drops data the business now
- * believes was captured. Rejecting extra keys also means the schema doubles as
- * an exhaustive description of what a caller may read.
+ * WHY 'array' EXISTS (added when the manager orchestrator was first driven end
+ * to end). TaskDecomposer asks for `['tasks' => 'array']` and ReviewLoop for
+ * `['findings' => 'array']` - both need to describe a VARIABLE-LENGTH LIST of
+ * values, which the object-schema form cannot express, because an object schema
+ * names its keys. Before 'array' existed those two requests were unbuildable:
+ * assertSchema() rejected the type name and AIRequest threw at construction, so
+ * ManagerOrchestrator::manage() could never have completed a single call. The
+ * bug was latent because nothing exercised the path - the first end-to-end
+ * invocation surfaced it.
+ *
+ * 'array' means a JSON LIST (array_is_list), not "any array". A list is what
+ * `[...]` decodes to; an object decodes to a string-keyed array and is the
+ * nested-schema case, not this one. Keeping them distinct means a model that
+ * answers `{"tasks": {"a": 1}}` where a list was required is caught here rather
+ * than blowing up in the caller's foreach.
  *
  * NULL IS NOT A VALUE HERE: 'string?' means "the key may be absent", not "the
  * key may be null". An explicit null from a model is almost always a failed
@@ -51,6 +62,16 @@ final class SchemaValidator
      * @var list<string>
      */
     private const SCALAR_TYPES = ['string', 'int', 'float', 'bool'];
+
+    /**
+     * Types that describe a JSON list rather than a single value. Kept separate
+     * from SCALAR_TYPES because the error message a caller sees should name the
+     * full set of what is allowed, and because matches() treats them
+     * differently - a scalar is one value, an array is many.
+     *
+     * @var list<string>
+     */
+    private const LIST_TYPES = ['array'];
 
     /**
      * @param array<array-key, mixed> $data   Decoded model output.
@@ -179,12 +200,12 @@ final class SchemaValidator
 
             $type = str_ends_with($expected, '?') ? substr($expected, 0, -1) : $expected;
 
-            if (!in_array($type, self::SCALAR_TYPES, true)) {
+            if (!in_array($type, self::SCALAR_TYPES, true) && !in_array($type, self::LIST_TYPES, true)) {
                 throw new InvalidArgumentException(sprintf(
                     'Schema field "%s" declares unknown type "%s". Allowed: %s (append "?" for optional).',
                     $field,
                     $expected,
-                    implode(', ', self::SCALAR_TYPES)
+                    implode(', ', [...self::SCALAR_TYPES, ...self::LIST_TYPES])
                 ));
             }
         }
@@ -195,6 +216,12 @@ final class SchemaValidator
      * 1 for a 'float' field is correct and json_decode simply hands back an
      * int. Rejecting it would fail valid output. The reverse is NOT allowed -
      * 1.5 for an 'int' field is a real mismatch.
+     *
+     * WHY 'array' REQUIRES array_is_list: a JSON list `[...]` is the thing a
+     * caller will foreach over. A JSON object `{...}` also decodes to a PHP
+     * array, so is_array() alone would accept `{"tasks": {"a": 1}}` for a field
+     * declared as a list and hand the caller a structure it cannot iterate the
+     * way it expects. Requiring a list keeps the two shapes distinct.
      */
     private function matches(mixed $value, string $type): bool
     {
@@ -203,6 +230,7 @@ final class SchemaValidator
             'int' => is_int($value),
             'float' => is_float($value) || is_int($value),
             'bool' => is_bool($value),
+            'array' => is_array($value) && array_is_list($value),
             default => false,
         };
     }
