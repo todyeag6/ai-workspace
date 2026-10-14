@@ -226,9 +226,152 @@ final class LoginControllerTest extends TestCase
         self::assertSame(404, $response['status']);
     }
 
+    public function test_logout_requires_post(): void
+    {
+        $response = $this->controller()->handle(['method' => 'GET', 'path' => '/logout']);
+
+        self::assertSame(405, $response['status'], 'logout is state-changing, so GET must not perform it');
+    }
+
+    public function test_logout_expires_the_cookie(): void
+    {
+        [$sessionId] = $this->signIn();
+
+        $response = $this->controller()->handle($this->logoutRequest($sessionId));
+
+        $cookie = (string) ($response['headers']['Set-Cookie'] ?? '');
+        self::assertStringContainsString(LoginController::COOKIE_NAME . '=', $cookie);
+        self::assertStringContainsString('Max-Age=0', $cookie, 'the cookie must be expired client-side too');
+    }
+
+    /**
+     * FR-IDENT-004 — THE ASSERTION THAT ACTUALLY PROVES REVOCATION.
+     *
+     * Clearing the cookie is cosmetic: a cookie is just a value the client
+     * volunteers, and an attacker who copied the session id does not care what
+     * the browser was told to forget. What makes logout real is that the
+     * SERVER-SIDE record is gone, so the id is dead for every container at once.
+     *
+     * So this test does not assert the cookie was expired. It logs in, keeps
+     * the raw session id, logs out, and then asks a second, independent
+     * AuthService to resolve that id - which is exactly what the next HTTP
+     * request would do. It must fail.
+     *
+     * This test is also what caught the first implementation being wrong: that
+     * version called AuthService::revoke(), whose in-memory subject is null on a
+     * logout request (logout authenticates nobody), so it deleted nothing while
+     * appearing to succeed.
+     */
+    public function test_the_session_id_is_dead_server_side_after_logout(): void
+    {
+        [$sessionId] = $this->signIn();
+
+        // A SECOND service instance stands in for the next request. Before
+        // logout it must resolve the id - otherwise this test would pass
+        // against an implementation that never created a session at all.
+        $before = $this->authService()->resume($sessionId);
+        self::assertTrue($before, 'the session must resolve before logout (guards a vacuous pass)');
+
+        $logout = $this->controller()->handle($this->logoutRequest($sessionId));
+        self::assertSame(200, $logout['status']);
+
+        $after = $this->authService()->resume($sessionId);
+        self::assertFalse(
+            $after,
+            'FR-IDENT-004: the session record must be DELETED server-side, not merely forgotten by the client'
+        );
+    }
+
+    /**
+     * The same property expressed through the middleware, which is what an
+     * unauthenticated console request actually passes through. A dead session
+     * id must yield REASON_NO_SESSION, not a render.
+     */
+    public function test_a_revoked_session_is_denied_by_the_auth_middleware(): void
+    {
+        [$sessionId] = $this->signIn();
+
+        $this->controller()->handle($this->logoutRequest($sessionId));
+
+        $middleware = new \App\Security\TenantAuthMiddleware(
+            new SessionStore($this->redis, 900),
+            new \App\Security\RbacPolicy($this->pdo),
+            new AuditLog($this->pdo)
+        );
+
+        $result = $middleware->authorise($sessionId, 'agent.console.view', null, 'GET', null);
+
+        self::assertFalse($result->allowed(), 'a revoked session must not authorise anything');
+        self::assertSame(
+            \App\Security\TenantAuthMiddleware::REASON_NO_SESSION,
+            $result->reason(),
+            'a revoked id is indistinguishable from an absent one'
+        );
+    }
+
+    /**
+     * A logout with no cookie must still succeed and expire the cookie - it just
+     * has nothing to revoke. It must not error, and it must not revoke some
+     * other session by falling back to a guessable value.
+     */
+    public function test_logout_without_a_cookie_succeeds_and_revokes_nothing(): void
+    {
+        [$sessionId] = $this->signIn();
+
+        $response = $this->controller()->handle(['method' => 'POST', 'path' => '/logout']);
+
+        self::assertSame(200, $response['status']);
+        self::assertTrue(
+            $this->authService()->resume($sessionId),
+            'a cookieless logout must not revoke a session it was never told about'
+        );
+    }
+
     private function controller(bool $secureRequest = false): LoginController
     {
-        return new LoginController($this->authService(), $secureRequest);
+        return new LoginController($this->authService(), new SessionStore($this->redis, 900), $secureRequest);
+    }
+
+    /**
+     * A logout request carrying the session cookie.
+     *
+     * The cookie is the ONLY channel for the session id (NIST SP 800-63B-4
+     * §5.1.1 / OWASP: limit the exchange mechanism to cookies), and logout
+     * cannot revoke what it was not told about - so a logout request without
+     * the cookie would be testing nothing.
+     *
+     * @return array{method: string, path: string, cookies: array<string, string>}
+     */
+    private function logoutRequest(string $sessionId): array
+    {
+        return [
+            'method' => 'POST',
+            'path' => '/logout',
+            'cookies' => [LoginController::COOKIE_NAME => $sessionId],
+        ];
+    }
+
+    /**
+     * Logs in and returns [sessionId, cookieName => id] for the next request.
+     *
+     * @return array{0: string, 1: array<string, string>}
+     */
+    private function signIn(): array
+    {
+        $userId = $this->seedUser();
+
+        $login = $this->controller()->handle([
+            'method' => 'POST',
+            'path' => '/login',
+            'body' => ['email' => $this->emailOf($userId), 'password' => self::PASSWORD],
+        ]);
+
+        self::assertSame(200, $login['status'], 'the sign-in fixture must succeed');
+
+        $sessionId = (string) $login['body']['session_id'];
+        $this->rememberSession($sessionId);
+
+        return [$sessionId, [LoginController::COOKIE_NAME => $sessionId]];
     }
 
     private function authService(): AuthService

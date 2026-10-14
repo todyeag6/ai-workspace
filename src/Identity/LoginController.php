@@ -66,12 +66,13 @@ final class LoginController
 
     public function __construct(
         private readonly AuthService $auth,
+        private readonly SessionStore $sessions,
         private readonly bool $secureRequest = false
     ) {
     }
 
     /**
-     * @param  array<string, mixed> $request method, path, body.
+     * @param  array<string, mixed> $request method, path, body, cookies.
      * @return array{status: int, body: array<string, mixed>, headers?: array<string, string>}
      */
     public function handle(array $request): array
@@ -88,9 +89,11 @@ final class LoginController
         }
 
         if ($path === self::LOGOUT_PATH) {
-            return $method === 'POST'
-                ? $this->logout()
-                : $this->response(self::STATUS_METHOD_NOT_ALLOWED, ['message' => 'Method not allowed.']);
+            if ($method !== 'POST') {
+                return $this->response(self::STATUS_METHOD_NOT_ALLOWED, ['message' => 'Method not allowed.']);
+            }
+
+            return $this->logout($this->sessionIdFromCookie($request));
         }
 
         if ($method === 'GET') {
@@ -98,6 +101,24 @@ final class LoginController
         }
 
         return $this->login($this->arrayField($request, 'body'));
+    }
+
+    /**
+     * The session id the client presented, read from the cookie only.
+     *
+     * NEVER from a query parameter or header. NIST SP 800-63B-4 §5.1.1 and the
+     * OWASP Session Management Cheat Sheet both require limiting the accepted
+     * session-ID exchange mechanism to cookies; accepting an id from the URL
+     * would let a link carry someone else's session.
+     *
+     * @param array<string, mixed> $request
+     */
+    private function sessionIdFromCookie(array $request): string
+    {
+        $cookies = $this->arrayField($request, 'cookies');
+        $value = $cookies[self::COOKIE_NAME] ?? '';
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /**
@@ -138,17 +159,28 @@ final class LoginController
     }
 
     /**
-     * FR-IDENT-004: revocation is SERVER-SIDE. AuthService::revoke() deletes the
-     * session record, so the id is dead for every container at once. Clearing
-     * the cookie alone would leave a stolen cookie working until it expired,
-     * which is why the test asserts a post-logout request is refused rather
-     * than asserting the cookie was cleared.
+     * FR-IDENT-004: revocation is SERVER-SIDE. The session record is DELETED,
+     * so the id is dead for every container at once. Clearing the cookie alone
+     * would leave a stolen cookie working until it expired, which is why the
+     * test asserts a post-logout request is refused rather than asserting the
+     * cookie was cleared.
+     *
+     * WHY THE SESSION ID COMES IN AS AN ARGUMENT RATHER THAN FROM
+     * AuthService::revoke(). Each HTTP request builds a fresh AuthService, and
+     * revoke() acts on that instance's in-memory subject - which is null on a
+     * logout request, because logout does not authenticate anyone. Calling
+     * revoke() there silently did nothing: a real defect the test caught (the
+     * session id still resolved after logout, and the middleware denied with
+     * REASON_FORBIDDEN instead of REASON_NO_SESSION). The id is therefore read
+     * from the presented cookie and the store is asked to destroy it.
      *
      * @return array{status: int, body: array<string, mixed>, headers?: array<string, string>}
      */
-    private function logout(): array
+    private function logout(string $sessionId): array
     {
-        $this->auth->revoke();
+        if ($sessionId !== '') {
+            $this->sessions->destroy($sessionId);
+        }
 
         return $this->response(
             self::STATUS_OK,
