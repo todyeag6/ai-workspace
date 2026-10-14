@@ -39,6 +39,9 @@ final class AgentConsoleController
 {
     public const PATH = '/console';
 
+    /** The permission code this endpoint requires. See migration 024. */
+    public const REQUIRED_PERMISSION = 'agent.console.view';
+
     private const STATUS_OK = 200;
 
     private const STATUS_NOT_FOUND = 404;
