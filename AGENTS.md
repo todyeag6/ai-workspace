@@ -19,8 +19,7 @@ audit docs (`AUDIT-REPORT.md`, `docs/`) — trust those over chat summary.
   that a scan scope cannot reach db/redis.
 
 ## OFF-LIMITS — do NOT touch without explicit scope
-- The running production/hybrid stack (app/redis/db-1) is **NOT** in this repo's scope. Do not inspect,
-  stop, remove, or `docker container prune` it. Blanket prune is forbidden.
+- The running production/hybrid stack (app/redis/db-1) is **NOT** in this repo's scope. Do not stop, remove, or `docker container prune` it. Blanket prune is forbidden.
 - Example/placeholder service names mentioned in conversation are **NOT** targets to investigate and must
   not be conflated with this stack.
 

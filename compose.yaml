@@ -56,7 +56,7 @@ services:
   # ONLY, never to scanner_net (SFR-SELF-001 topology held). Relational data is
   # already provided in-stack by `db` (FR-DATA-001 at rest).
   openviking:
-    image: curistech/openviking:latest
+    image: ghcr.io/volcengine/openviking:latest
     restart: unless-stopped
     extra_hosts:
       - 'host.docker.internal:host-gateway'
@@ -65,7 +65,7 @@ services:
     networks:
       - app_net
     healthcheck:
-      test: ['CMD', 'wget', '-q', '-O', '-', 'http://host.docker.internal:1933/health']
+      test: ['CMD-SHELL', 'curl -sf http://host.docker.internal:1933/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 10

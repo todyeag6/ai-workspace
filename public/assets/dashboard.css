@@ -1,0 +1,38 @@
+/*
+ * Operations dashboard stylesheet (P1-T15 / SEC-004).
+ *
+ * Served as a static asset so the page can drop its inline <style> block and
+ * the Content-Security-Policy can hold style-src 'self' with no 'unsafe-inline'
+ * grant. Carries the A11Y-002 focus-visible, A11Y-004 contrast and
+ * prefers-reduced-motion guarantees the accessibility pass asserts.
+ *
+ * © AI WebScapes 2026
+ */
+
+:root { color-scheme: light; }
+
+body { font-family: system-ui, sans-serif; color: #1a1a1a; background: #fff; margin: 0; padding: 1rem; line-height: 1.5; }
+
+a { color: #0b5cab; }
+
+.skip-link { position: absolute; left: -999px; }
+
+.skip-link:focus { left: 1rem; top: 1rem; background: #fff; padding: .5rem; }
+
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 3px solid #0b5cab; outline-offset: 2px;
+}
+
+.status-icon { font-weight: bold; margin-right: .4rem; }
+
+table { border-collapse: collapse; margin-bottom: 1.5rem; }
+
+th, td { border: 1px solid #595959; padding: .4rem .8rem; text-align: left; }
+
+.field { margin-bottom: 1rem; }
+
+.field-error { color: #b00020; font-weight: bold; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

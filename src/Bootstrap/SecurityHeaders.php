@@ -13,8 +13,11 @@ namespace App\Bootstrap;
  * by tests/Bootstrap/SecurityHeadersTest.php rather than slipping into a release.
  *
  * The values are the canonical, restrictive set: a 'self'-only default-src with
- * inline styles permitted (the dashboard inlines its stylesheet for the axe-core
- * served gate), referrer not sent, content-type not sniffed, and never framed.
+ * no inline grants of any kind (the dashboard's stylesheet is served as a static
+ * asset so style-src can stay 'self'), the two directives that do NOT fall back
+ * to default-src (frame-ancestors and form-action) declared explicitly, a
+ * deny-by-default Permissions-Policy for powerful browser features, referrer not
+ * sent, content-type not sniffed, and never framed.
  *
  * © AI WebScapes 2026
  */
@@ -26,7 +29,8 @@ final class SecurityHeaders
      * @var array<string, string>
      */
     public const HEADERS = [
-        'Content-Security-Policy' => "default-src 'self'; style-src 'self' 'unsafe-inline'",
+        'Content-Security-Policy' => "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'",
+        'Permissions-Policy' => 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
         'Referrer-Policy' => 'no-referrer',
         'X-Content-Type-Options' => 'nosniff',
         'X-Frame-Options' => 'DENY',

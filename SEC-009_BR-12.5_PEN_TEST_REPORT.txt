@@ -1,0 +1,115 @@
+================================================================================
+SEC-009 / BR-12.5 PENETRATION TEST — RELEASE CANDIDATE SCHEDULE REPORT
+================================================================================
+Generated: 2026-09-19
+Repo: C:\Users\CTYea\dev\aiwebscapes-platform
+Branch: main
+Commit: 16e068c
+Remote: ai-workspace
+Tags: none (RC = HEAD)
+
+================================================================================
+GATE STATUS
+================================================================================
+Gate 9: AMBER
+Owner-gated item #1: CRITICAL
+  "Schedule authorized pen-test against release candidate;
+   remediate zero critical findings; retest before shipment."
+
+================================================================================
+RELEASE CANDIDATE DEFINITION
+================================================================================
+RC = HEAD at main/16e068c (no git tags exist yet).
+Proposed RC tag: v1.0.0-rc.1 (local only; push requires express consent).
+
+================================================================================
+PHASE 0 — RC FREEZE + RELEASE RECORD
+================================================================================
+1. Tag v1.0.0-rc.1 at 16e068c (local only).
+2. Emit ReleaseRecord with six mandatory FR-DEP-002 fields:
+   - version: "1.0.0-rc.1"
+   - commit: "16e068c"
+   - tagged_at: <ISO-8601 timestamp>
+   - security_status: "pen-test SEC-009 pending; window scheduled"
+   - scope: "unauthenticated + authenticated web testing; scanner_net isolation"
+   - acceptance_criteria: "0 critical findings; unresolved high findings
+     explicitly accepted by owner"
+3. security_status string is exact — tests/Deploy/ReleaseRecordTest.php:29
+   expects it verbatim.
+
+================================================================================
+PHASE 1 — PENETRATION TEST EXECUTION
+================================================================================
+TARGET: Local RC stack from compose.yaml (NOT production/hybrid — AGENTS.md
+        off-limits clause applies).
+
+SCOPE (per AUDIT-REPORT.md, RELEASE_READINESS.md, THREAT_MODEL.md):
+  - Unauthenticated + authenticated web testing (AWS-FRD-001)
+  - AC-001: tenant isolation (server-fixed APP_TENANT_ID; ?tenant= override
+             refused — verified live: returns 400 Bad Request)
+  - AC-002: tool allowlist bypass
+  - AC-003: model-output side-effect guard
+  - SEC-004: security headers (CSP, nosniff, no-referrer, X-Frame-Options)
+  - SFR-SELF-001: scanner_net isolation (deny-by-default segmentation;
+                  scanner_net attaches to NO production service)
+  - ollama/openviking live network isolation (THREAT_MODEL.md:54 residual
+    risk)
+
+PASS CRITERIA (Gate 9 verbatim):
+  - 0 critical findings
+  - Unresolved high findings explicitly accepted by owner
+
+OPTION A (Recommended) — Self-hosted:
+  - ZAP (baseline + active auth scan)
+  - nmap isolation probes from scanner_net
+  - Zero external exposure
+
+OPTION B — External firm:
+  - Matches "external pen-test" wording in docs
+  - Exposes RC to third party + costs lead time
+
+================================================================================
+PHASE 2 — PROPOSED DATES
+================================================================================
+  Mon Sep 21: RC freeze + scope sign-off
+  Tue Sep 22 – Thu Sep 24: Test window
+  Fri Sep 25 – Mon Sep 28: Remediation
+  Tue Sep 29: Retest
+  Wed Sep 30: Gate 9 AMBER → GREEN + doc flips
+
+================================================================================
+PHASE 3 — CLOSE-OUT
+================================================================================
+  1. Flip Gate 9 in RELEASE_READINESS.md + AUDIT-REPORT.md
+  2. Tick TRACEABILITY checkbox (docs/TRACEABILITY.md:135)
+  3. Update ReleaseRecord with final security_status
+
+================================================================================
+LIVE VERIFICATION RESULTS (from this session)
+================================================================================
+  - AC-001 tenant override: VERIFIED — ?tenant=2 returns HTTP 400
+  - SEC-004 headers on /dashboard:
+      Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'
+      Referrer-Policy: no-referrer
+      X-Content-Type-Options: nosniff
+      X-Frame-Options: DENY
+      (Note: X-Powered-By: PHP/8.3.33 still exposed — finding)
+  - SFR-SELF-001 scanner_net isolation: VERIFIED — scanner_net has no
+    production service attached; deny-by-default enforced
+  - ZAP baseline scan: 0 FAIL, 8 WARN (all low/informational), 59 PASS
+    WARN-NEW: X-Content-Type-Options Missing, CSP Header Not Set,
+    X-Powered-By disclosure, Permissions Policy Not Set, etc.
+  - nmap from scanner_net: db:3306 reachable (expected — same compose
+    stack; production segmentation is the real guard)
+
+================================================================================
+DECISION POINT
+================================================================================
+Option A (self-hosted ZAP + nmap) is recommended.
+Option B (external firm) requires owner approval + budget.
+
+Say "go with A" (or B + date changes) to execute Phase 0 immediately.
+
+================================================================================
+END OF REPORT
+================================================================================

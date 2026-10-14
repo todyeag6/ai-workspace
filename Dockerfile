@@ -16,4 +16,10 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # without per-invocation flags.
 RUN printf '[client]\nssl-verify-server-cert=0\n' > /etc/mysql/my.cnf
 
+# SEC-009: stop advertising the PHP version. expose_php is INI_SYSTEM (php.ini
+# only -- it cannot be set at runtime), so it is baked into the image. Without
+# this every response carries "X-Powered-By: PHP/8.3.33", handing an attacker the
+# exact version to match exploits against.
+RUN printf 'expose_php=Off\n' > /usr/local/etc/php/conf.d/security.ini
+
 WORKDIR /app

@@ -61,13 +61,17 @@ final class LeadController
      *                                       raw IP is never stored or keyed on.
      * @param string|null $expectedCsrfToken The session's token, when there is a
      *                                       session. Null means "anonymous form".
+     * @param string|null $csrfCookieToken   The double-submit cookie token for
+     *                                       session-less forms. When set, the form
+     *                                       must echo it in csrf_token.
      */
     public function __construct(
         private LeadService $service,
         private string $tenantId,
         private string $ipHashSecret,
         private ?string $expectedCsrfToken = null,
-        private ?CsrfGuard $csrf = null
+        private ?CsrfGuard $csrf = null,
+        private ?string $csrfCookieToken = null
     ) {
     }
 
@@ -141,16 +145,26 @@ final class LeadController
      */
     private function csrfSatisfied(string $method, array $body): bool
     {
-        if ($this->expectedCsrfToken === null) {
-            return true;
+        // Session-based CSRF (when a session exists)
+        if ($this->expectedCsrfToken !== null) {
+            $guard = $this->csrf ?? new CsrfGuard();
+            if (!$guard->requiresToken($method)) {
+                return true;
+            }
+
+            return $guard->verify($this->expectedCsrfToken, $this->stringField($body, 'csrf_token'));
         }
 
-        $guard = $this->csrf ?? new CsrfGuard();
-        if (!$guard->requiresToken($method)) {
-            return true;
+        // Double-submit cookie CSRF (session-less form)
+        if ($this->csrfCookieToken !== null) {
+            return CsrfCookie::verify(
+                $this->csrfCookieToken,
+                $this->stringField($body, 'csrf_token')
+            );
         }
 
-        return $guard->verify($this->expectedCsrfToken, $this->stringField($body, 'csrf_token'));
+        // No CSRF protection configured — allow (honeypot + throttle still apply)
+        return true;
     }
 
     /**

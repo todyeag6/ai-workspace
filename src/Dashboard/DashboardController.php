@@ -31,6 +31,12 @@ final class DashboardController
 {
     public const PATH = '/dashboard';
 
+    /**
+     * The dashboard stylesheet, served as a static same-origin asset. Kept as a
+     * constant so the markup and the served file cannot drift apart.
+     */
+    public const STYLESHEET_PATH = '/assets/dashboard.css';
+
     private const STATUS_ICONS = [
         'New' => '●',            // filled circle
         'Review' => '!',         // exclamation
@@ -135,7 +141,7 @@ final class DashboardController
             . '<meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>Operations Dashboard</title>'
-            . $this->styleBlock()
+            . $this->styleLink()
             . '</head>'
             . '<body>'
             . '<a class="skip-link" href="#main">Skip to main content</a>'
@@ -178,6 +184,7 @@ final class DashboardController
         return '<section aria-labelledby="lead-form-h">'
             . '<h2 id="lead-form-h">Add a lead</h2>'
             . '<form method="post" action="/api/v1/public/leads" novalidate>'
+            . '<input type="hidden" name="csrf_token" id="csrf-token" value="">'
             . '<div class="field">'
             . '<label for="lead-email">Email address</label>'
             . '<input type="email" id="lead-email" name="email" autocomplete="email"'
@@ -192,6 +199,7 @@ final class DashboardController
             . '</div>'
             . '<button type="submit">Submit lead</button>'
             . '</form>'
+            . '<script>document.getElementById("csrf-token").value=document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)?.[1]||"";</script>'
             . '</section>';
     }
 
@@ -225,30 +233,19 @@ final class DashboardController
             . '</section>';
     }
 
-    private function styleBlock(): string
+    /**
+     * A link to the dashboard stylesheet, served same-origin from public/assets.
+     *
+     * External rather than inline (SEC-004): an inline <style> block forces the
+     * Content-Security-Policy to grant style-src 'unsafe-inline', which is the
+     * weakest style policy available and was flagged by the SEC-009 pen-test.
+     * A linked stylesheet lets the policy stay at style-src 'self'. The file
+     * itself carries the A11Y-002 focus-visible, A11Y-004 contrast and
+     * reduced-motion rules.
+     */
+    private function styleLink(): string
     {
-        // Inline so the page is self-contained for the axe-core served gate and
-        // for offline review. A11Y-002 focus-visible + A11Y-004 contrast +
-        // reduced-motion from the deck's two carried-over fixes.
-        $css = <<<'CSS'
-:root { color-scheme: light; }
-body { font-family: system-ui, sans-serif; color: #1a1a1a; background: #fff; margin: 0; padding: 1rem; line-height: 1.5; }
-a { color: #0b5cab; }
-.skip-link { position: absolute; left: -999px; }
-.skip-link:focus { left: 1rem; top: 1rem; background: #fff; padding: .5rem; }
-a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 3px solid #0b5cab; outline-offset: 2px;
-}
-.status-icon { font-weight: bold; margin-right: .4rem; }
-table { border-collapse: collapse; margin-bottom: 1.5rem; }
-th, td { border: 1px solid #595959; padding: .4rem .8rem; text-align: left; }
-.field { margin-bottom: 1rem; }
-.field-error { color: #b00020; font-weight: bold; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
-CSS;
-
-        return '<style>' . $css . '</style>';
+        return '<link rel="stylesheet" href="' . self::STYLESHEET_PATH . '">';
     }
 
     /**

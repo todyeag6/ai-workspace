@@ -137,6 +137,20 @@ final class AccessibilityTest extends TestCase
 
     private function assertVisibleFocusStyles(string $html): void
     {
-        self::assertStringContainsString(':focus-visible', $html, 'No visible focus styling declared (A11Y-002).');
+        // A11Y-002 focus styling is declared in the stylesheet the page links.
+        // Since SEC-004 moved that stylesheet out of the HTML (to drop
+        // style-src 'unsafe-inline'), the guarantee is proven in two places:
+        // the page must link the asset, and the asset must declare the rule.
+        self::assertStringContainsString(
+            'href="' . DashboardController::STYLESHEET_PATH . '"',
+            $html,
+            'The dashboard must link its stylesheet, or no styling reaches the page.'
+        );
+
+        $cssPath = __DIR__ . '/../../public' . DashboardController::STYLESHEET_PATH;
+        $css = file_get_contents($cssPath);
+        self::assertIsString($css, 'The dashboard stylesheet must exist on disk.');
+
+        self::assertStringContainsString(':focus-visible', $css, 'No visible focus styling declared (A11Y-002).');
     }
 }

@@ -1,0 +1,8 @@
+{
+  "version": "v1.0.0-rc1",
+  "change_record": "RC freeze for SEC-009 / BR-12.5 pen-test window; tag v1.0.0-rc.1 at 16e068c",
+  "test_evidence": "phpunit all green at 16e068c; phpstan L8 [OK]; phpcs clean; CI 6 gates green (AUDIT-REPORT.md)",
+  "security_status": "pen-test SEC-009 pending; window scheduled 2026-09-22..24; retest 2026-09-29",
+  "migration_status": "ordered migrations applied; no pending migrations at 16e068c",
+  "rollback_reference": "git revert to 16e068c; FR-DEP-001 backup/restore drill faa4b25"
+}
