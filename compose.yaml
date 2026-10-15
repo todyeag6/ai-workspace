@@ -49,6 +49,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # Loopback-only publish so the host-served Apache vhost on :8082 can reach
+    # the SAME Redis the `app` container uses (server-side sessions). Host IP is
+    # explicit: without it Docker binds 0.0.0.0 and bypasses host firewall rules
+    # (Docker docs, "Port publishing and mapping"). Redis's own guidance is that
+    # the port be reachable only by trusted clients and via loopback.
+    ports:
+      - '127.0.0.1:6379:6379'
 
   # P4-T7 (local vector/data services) — in-stack OpenViking knowledge store for
   # the local/hybrid path. Reaches the host's running OpenViking via
