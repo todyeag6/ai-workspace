@@ -38,7 +38,11 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: aiwebscapes
     ports:
-      - '3307:3306'
+      # Loopback-only: defence-in-depth behind the existing inbound BLOCK rule
+      # (Hermes-LAN-Harden-P3307). The bare "3307:3306" form binds 0.0.0.0 and
+      # would rely on that single firewall rule alone.
+      # Ref: https://docs.docker.com/engine/network/port-publishing/
+      - '127.0.0.1:3307:3306'
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-P', '3306', '-uroot', '-proot']
       interval: 5s
