@@ -37,6 +37,25 @@ use InvalidArgumentException;
  */
 final class LocalModelResolverTest extends TestCase
 {
+    private ?string $originalContextLength = null;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->originalContextLength = getenv('OLLAMA_CONTEXT_LENGTH') ?: null;
+        putenv('OLLAMA_CONTEXT_LENGTH=8192');
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->originalContextLength !== null) {
+            putenv('OLLAMA_CONTEXT_LENGTH=' . $this->originalContextLength);
+        } else {
+            putenv('OLLAMA_CONTEXT_LENGTH');
+        }
+        parent::tearDown();
+    }
+
     /**
      * Every general-purpose need lands on the one resident model. If this
      * fails, the box is thrashing weights between calls.

@@ -20,10 +20,11 @@ use RuntimeException;
  * child process rather than as --password=..., which keeps it out of the
  * process table where any other user on the host could read it with ps.
  *
- * The child's stdout/stderr are drained on every loop iteration while data is
- * being pumped. Filling a pipe buffer that nobody is reading is the classic
- * way to deadlock proc_open, and mysqldump output is far larger than the 64 KB
- * a pipe holds.
+ * The child's stderr is redirected to a temp file rather than drained from a
+ * pipe: stream_select() fails on proc_open() descriptors under Windows, so
+ * there is no portable way to drain both pipes concurrently. mysqldump output
+ * is far larger than the 64 KB a pipe holds, which is why the stdout pipe is
+ * still read to EOF rather than left full.
  */
 final class MysqlBinary
 {
@@ -50,17 +51,27 @@ final class MysqlBinary
             throw new RuntimeException(sprintf('Unable to open "%s" for writing.', $outputPath));
         }
 
+        // Redirect stderr to a temp file rather than a pipe. stream_select()
+        // fails on proc_open() descriptors under Windows, so concurrent pipe
+        // draining is not possible there. A temp file avoids the stderr
+        // pipe-buffer deadlock entirely.
+        $stderrFile = tempnam(sys_get_temp_dir(), 'mysqldump-stderr');
+        if ($stderrFile === false) {
+            gzclose($output);
+            throw new RuntimeException('Unable to create temporary file for stderr.');
+        }
+
         $pipes = [];
         $process = $this->start($arguments, [
-            0 => ['file', '/dev/null', 'r'],
+            0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
+            2 => ['file', $stderrFile, 'w'],
         ], $pipes);
 
-        stream_set_blocking($pipes[2], false);
+        // Close stdin immediately — mysqldump never reads from stdin.
+        fclose($pipes[0]);
 
         $bytes = 0;
-        $errors = '';
 
         while (!feof($pipes[1])) {
             $chunk = fread($pipes[1], self::CHUNK_BYTES);
@@ -71,23 +82,26 @@ final class MysqlBinary
             if ($chunk !== '') {
                 if (gzwrite($output, $chunk) === false) {
                     gzclose($output);
+                    @unlink($stderrFile);
                     $this->finish($process, $pipes, 'writing the dump');
                     throw new RuntimeException(sprintf('Failed writing to "%s".', $outputPath));
                 }
                 $bytes += strlen($chunk);
             }
-
-            $errors .= $this->drain($pipes[2]);
         }
 
-        $errors .= $this->drain($pipes[2]);
         gzclose($output);
+        fclose($pipes[1]);
 
         $status = $this->finish($process, $pipes, 'dumping');
+
+        $errors = file_get_contents($stderrFile);
+        @unlink($stderrFile);
+
         if ($status !== 0) {
             @unlink($outputPath);
             throw new RuntimeException(
-                sprintf('%s exited %d: %s', $this->binary, $status, trim($errors))
+                sprintf('%s exited %d: %s', $this->binary, $status, trim($errors === false ? '' : $errors))
             );
         }
 
@@ -116,18 +130,24 @@ final class MysqlBinary
             throw new RuntimeException(sprintf('Unable to open "%s" for reading.', $inputPath));
         }
 
+        // Redirect stderr to a temp file rather than a pipe. stream_select()
+        // fails on proc_open() descriptors under Windows, so concurrent pipe
+        // draining is not possible there. A temp file avoids the stderr
+        // pipe-buffer deadlock entirely.
+        $stderrFile = tempnam(sys_get_temp_dir(), 'mysql-stderr');
+        if ($stderrFile === false) {
+            gzclose($input);
+            throw new RuntimeException('Unable to create temporary file for stderr.');
+        }
+
         $pipes = [];
         $process = $this->start($arguments, [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
+            2 => ['file', $stderrFile, 'w'],
         ], $pipes);
 
-        stream_set_blocking($pipes[1], false);
-        stream_set_blocking($pipes[2], false);
-
         $bytes = 0;
-        $errors = '';
 
         while (!gzeof($input)) {
             $chunk = gzread($input, self::CHUNK_BYTES);
@@ -137,9 +157,6 @@ final class MysqlBinary
 
             $this->writeAll($pipes[0], $chunk);
             $bytes += strlen($chunk);
-
-            $this->drain($pipes[1]);
-            $errors .= $this->drain($pipes[2]);
         }
 
         gzclose($input);
@@ -149,13 +166,18 @@ final class MysqlBinary
         // stdin is closed, so the client will now finish and exit: it is safe
         // to go back to blocking reads and collect whatever is left.
         stream_set_blocking($pipes[1], true);
-        stream_set_blocking($pipes[2], true);
-        $errors .= $this->drain($pipes[2]);
+        $stdout = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        unset($pipes[1]);
 
         $status = $this->finish($process, $pipes, 'restoring');
+
+        $errors = file_get_contents($stderrFile);
+        @unlink($stderrFile);
+
         if ($status !== 0) {
             throw new RuntimeException(
-                sprintf('%s exited %d: %s', $this->binary, $status, trim($errors))
+                sprintf('%s exited %d: %s', $this->binary, $status, trim($errors === false ? '' : $errors))
             );
         }
 
@@ -175,7 +197,8 @@ final class MysqlBinary
             $descriptors,
             $pipes,
             null,
-            $this->environment()
+            $this->environment(),
+            ['bypass_shell' => true]
         );
 
         if (!is_resource($process)) {
@@ -204,16 +227,6 @@ final class MysqlBinary
         }
 
         return $status;
-    }
-
-    /**
-     * @param resource $pipe
-     */
-    private function drain($pipe): string
-    {
-        $contents = stream_get_contents($pipe);
-
-        return $contents === false ? '' : $contents;
     }
 
     /**
@@ -256,6 +269,15 @@ final class MysqlBinary
     {
         $path = getenv('PATH');
         $home = getenv('HOME');
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $env = getenv();
+            $env['PATH'] = is_string($path) && $path !== '' ? $path : 'C:\Windows\system32;C:\Windows';
+            $env['HOME'] = is_string($home) && $home !== '' ? $home : 'C:\Users\Default';
+            $env['MYSQL_PWD'] = $this->password;
+
+            return $env;
+        }
 
         return [
             'PATH' => is_string($path) && $path !== ''

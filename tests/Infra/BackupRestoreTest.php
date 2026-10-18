@@ -102,25 +102,44 @@ final class BackupRestoreTest extends TestCase
     {
         $command = array_merge([PHP_BINARY, self::repositoryRoot() . '/scripts/' . $script], $arguments);
 
+        // Redirect stderr to a temp file rather than a pipe. stream_select()
+        // fails on proc_open() descriptors under Windows, so concurrent pipe
+        // draining is not possible there. A temp file avoids the stderr
+        // pipe-buffer deadlock entirely.
+        $stderrFile = tempnam(sys_get_temp_dir(), 'stderr');
+        if ($stderrFile === false) {
+            throw new RuntimeException('Unable to create temporary file for stderr.');
+        }
+
         $descriptors = [
-            0 => ['file', '/dev/null', 'r'],
+            0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
+            2 => ['file', $stderrFile, 'w'],
         ];
 
         $pipes = [];
-        $process = proc_open($command, $descriptors, $pipes, self::repositoryRoot());
+        $process = proc_open($command, $descriptors, $pipes, self::repositoryRoot(), null, ['bypass_shell' => true]);
         if (!is_resource($process)) {
+            @unlink($stderrFile);
             throw new RuntimeException(sprintf('Unable to start scripts/%s.', $script));
         }
 
+        // Close stdin immediately — the scripts never read from stdin, and
+        // leaving it open risks a child process blocking on stdin read.
+        fclose($pipes[0]);
+
+        // Read stdout until EOF (process exit). stderr goes to the temp file,
+        // so there is no stderr pipe to deadlock on.
         $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
-        fclose($pipes[2]);
+
+        $code = proc_close($process);
+
+        $stderr = file_get_contents($stderrFile);
+        @unlink($stderrFile);
 
         return [
-            'code' => proc_close($process),
+            'code' => $code,
             'stdout' => $stdout === false ? '' : $stdout,
             'stderr' => $stderr === false ? '' : $stderr,
         ];
