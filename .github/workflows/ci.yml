@@ -32,7 +32,12 @@ permissions:
 jobs:
   quality-gate:
     name: quality-gate
-    runs-on: ubuntu-latest
+    # Version-pinned, NOT `ubuntu-latest`: GitHub retags `-latest` to a new
+    # Ubuntu release on its own schedule (the 24.04 -> 26.04 move is announced
+    # for November 2026: https://github.com/actions/runner-images/issues/14748),
+    # which would change the toolchain without a commit. Pinning keeps the
+    # runner image a reviewed decision; bumping it is then a deliberate PR.
+    runs-on: ubuntu-24.04
 
     services:
       # Named `db` so the PHP DSN host `db` resolves via GitHub's automatic
@@ -79,13 +84,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, 2026-07-20
         with:
           # Full history: gitleaks-action scans commits, not just the worktree.
           fetch-depth: 0
 
       - name: Setup PHP 8.3
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0, 2026-10-08
         with:
           php-version: '8.3'
           extensions: pdo_mysql, redis, mbstring, json
@@ -112,7 +117,7 @@ jobs:
         run: mysql -h 127.0.0.1 -P 3306 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS aiwebscapes_test CHARACTER SET utf8mb4;"
 
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0, 2026-06-26
         with:
           path: vendor
           key: composer-${{ runner.os }}-php8.3-${{ hashFiles('composer.lock') }}
@@ -140,7 +145,7 @@ jobs:
         run: composer CycloneDX:make-sbom --output-format=XML --output-file=sbom.xml --spec-version=1.6 --validate
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, 2026-10-07
         with:
           name: sbom
           path: sbom.xml
@@ -151,7 +156,7 @@ jobs:
       # scripts/ci-local.sh apply an identical allowlist (vendor/, *.phar,
       # lockfiles, generated SBOMs - see that file for per-path rationale).
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0, 2026-05-30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml

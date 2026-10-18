@@ -1,0 +1,22 @@
+# Dependabot version updates for GitHub Actions (SEC-007 supply chain).
+#
+# Why this file exists: `.github/workflows/ci.yml` pins every third-party
+# action to a full-length commit SHA so the code the gate runs cannot change
+# under us (mutable tags are repointable). A pin with no updater is a freeze,
+# so this config is what keeps the pins current - the two changes ship together.
+#
+# Shape follows the documented example verbatim:
+#   https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot
+# ("The `directory` must be set to `/` to check for workflow files in
+#  `.github/workflows`. The `schedule.interval` is set to `weekly`.")
+#
+# NOTE: Dependabot PRs run with a read-only GITHUB_TOKEN and cannot access
+# secrets (documented on the same page), so a bump PR must pass the full
+# quality-gate on its own merits before merge.
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
