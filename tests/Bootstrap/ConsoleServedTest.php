@@ -39,7 +39,10 @@ use RuntimeException;
  */
 final class ConsoleServedTest extends TestCase
 {
-    private const DOCROOT = '/app/public';
+    private static function docroot(): string
+    {
+        return dirname(__DIR__, 2) . '/public';
+    }
     private const PASSWORD = 'correct horse battery staple';
     private const TENANT = 1;
 
@@ -134,15 +137,15 @@ final class ConsoleServedTest extends TestCase
             '-S',
             '127.0.0.1:' . $this->port,
             '-t',
-            self::DOCROOT,
-            self::DOCROOT . '/index.php',
+            self::docroot(),
+            self::docroot() . '/index.php',
         ];
 
         $server = proc_open(
             $command,
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $this->pipes,
-            self::DOCROOT,
+            self::docroot(),
             $env
         );
 

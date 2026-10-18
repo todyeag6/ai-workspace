@@ -38,7 +38,7 @@ final class CreateOperatorTest extends TestCase
     /** @var list<int> */
     private array $createdUserIds = [];
 
-    private const SCRIPT = '/app/scripts/create-operator.php';
+    private const SCRIPT = __DIR__ . '/../../scripts/create-operator.php';
 
     protected function tearDown(): void
     {
@@ -296,7 +296,7 @@ final class CreateOperatorTest extends TestCase
         $env = getenv();
         $env['TEST_DB_DSN'] = $this->testDsn();
 
-        $process = proc_open($command, $descriptors, $pipes, '/app', $env);
+        $process = proc_open($command, $descriptors, $pipes, dirname(__DIR__, 2), $env);
         if (!is_resource($process)) {
             throw new RuntimeException('Unable to start the provisioning script.');
         }

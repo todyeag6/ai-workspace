@@ -69,6 +69,12 @@ jobs:
       DB_DSN: 'mysql:host=127.0.0.1;dbname=aiwebscapes;charset=utf8mb4'
       TEST_DB_DSN: 'mysql:host=127.0.0.1;dbname=aiwebscapes_test;charset=utf8mb4'
       REDIS_DSN: 'tcp://127.0.0.1:6379'
+      # public/index.php reads REDIS_HOST / REDIS_PORT (not REDIS_DSN) and
+      # defaults the host to `redis`, which does not resolve on the runner.
+      # The served-surface tests spawn a real subprocess, so this must point at
+      # the runner's loopback redis service.
+      REDIS_HOST: '127.0.0.1'
+      REDIS_PORT: '6379'
       AI_LOCAL_BASE_URL: 'http://127.0.0.1:11434/v1'
 
     steps:
