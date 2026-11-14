@@ -227,10 +227,24 @@ final class SafeScannerInvoker
     {
         $path = getenv('PATH');
 
-        return [
+        $env = [
             'PATH' => is_string($path) && $path !== '' ? $path : '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
             'LC_ALL' => 'C',
         ];
+
+        // PHP's Windows build resolves its own DLLs (including extension DLLs such
+        // as php_curl) through %SystemRoot%. proc_open()'s $env is a COMPLETE
+        // replacement environment (php.net proc_open manual), so a child php.exe
+        // spawned without it dies at startup: "Unable to start curl module"
+        // (exit -2; reproduced on PHP 8.5.12/Windows - 8.3 tolerates the omission).
+        if (PHP_OS_FAMILY === 'Windows') {
+            $systemRoot = getenv('SystemRoot');
+            $env['SystemRoot'] = is_string($systemRoot) && $systemRoot !== ''
+                ? $systemRoot
+                : 'C:\\Windows';
+        }
+
+        return $env;
     }
 
     /**

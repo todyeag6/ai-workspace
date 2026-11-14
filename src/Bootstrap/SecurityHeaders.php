@@ -50,7 +50,7 @@ final class SecurityHeaders
      *
      * @param callable(string, string): void $sender
      */
-    public static function apply(callable $sender = null): void
+    public static function apply(?callable $sender = null): void
     {
         $emit = $sender ?? static function (string $name, string $value): void {
             header($name . ': ' . $value);
