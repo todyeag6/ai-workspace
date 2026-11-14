@@ -89,10 +89,10 @@ jobs:
           # Full history: gitleaks-action scans commits, not just the worktree.
           fetch-depth: 0
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP 8.5
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0, 2026-10-08
         with:
-          php-version: '8.3'
+          php-version: '8.5'
           extensions: pdo_mysql, redis, mbstring, json
           coverage: none
           tools: composer:v2
